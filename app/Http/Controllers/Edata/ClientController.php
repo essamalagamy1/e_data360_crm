@@ -21,6 +21,17 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ClientController extends BaseController
 {
+    /**
+     * A role that may only view clients sees their names and nothing else: no
+     * contact details, no money, no client page. Editing clients unlocks the rest.
+     */
+    private function namesOnly(): bool
+    {
+        $me = $this->me();
+
+        return !Access::isOwner($me) && !$me->can('edit customer');
+    }
+
     private function listQuery(Request $request)
     {
         $query = Access::customers($this->me());
@@ -32,10 +43,13 @@ class ClientController extends BaseController
         }
         if ($request->filled('q')) {
             $q = '%' . $request->query('q') . '%';
-            $query->where(fn ($w) => $w->where('customers.name', 'like', $q)
-                ->orWhere('customers.email', 'like', $q)
-                ->orWhere('customers.contact', 'like', $q)
-                ->orWhere('customers.contact_person', 'like', $q));
+            // Searching by phone or email would reveal them, so a names-only role searches names.
+            $query->where(fn ($w) => $this->namesOnly()
+                ? $w->where('customers.name', 'like', $q)
+                : $w->where('customers.name', 'like', $q)
+                    ->orWhere('customers.email', 'like', $q)
+                    ->orWhere('customers.contact', 'like', $q)
+                    ->orWhere('customers.contact_person', 'like', $q));
         }
         if ($request->filled('status')) {
             $query->where('customers.crm_status', $request->query('status'));
@@ -56,6 +70,12 @@ class ClientController extends BaseController
         Access::need($me, 'manage customer');
         $company = $this->companyId();
 
+        if ($this->namesOnly()) {
+            return view('edata.clients.names', [
+                'clients' => $this->listQuery($request)->orderBy('customers.name')->paginate(60, ['customers.id', 'customers.name'])->withQueryString(),
+            ]);
+        }
+
         $clients = $this->listQuery($request)->orderBy('customers.name')->paginate($this->perPage())->withQueryString();
         $ids = $clients->getCollection()->pluck('id');
 
@@ -65,7 +85,9 @@ class ClientController extends BaseController
         InvoiceMath::attach($invoices, $company);
         foreach ($invoices as $invoice) {
             $money[$invoice->customer_id]['total'] = ($money[$invoice->customer_id]['total'] ?? 0) + $invoice->calc['total'];
+            $money[$invoice->customer_id]['paid'] = ($money[$invoice->customer_id]['paid'] ?? 0) + $invoice->calc['paid'];
             $money[$invoice->customer_id]['due'] = ($money[$invoice->customer_id]['due'] ?? 0) + max(0, $invoice->calc['due']);
+            $money[$invoice->customer_id]['count'] = ($money[$invoice->customer_id]['count'] ?? 0) + 1;
         }
 
         $projectCounts = Access::projects($me)->whereIn('customer_id', $ids)
@@ -93,6 +115,7 @@ class ClientController extends BaseController
     public function export(Request $request)
     {
         Access::need($this->me(), 'manage customer');
+        abort_if($this->namesOnly(), 403);
 
         $rows = $this->listQuery($request)->orderBy('customers.name')->get()->map(fn ($c) => [
             $c->name, $c->contact_person, $c->email, $c->contact, $c->billing_country, $c->billing_city,
@@ -144,6 +167,7 @@ class ClientController extends BaseController
     {
         $me = $this->me();
         Access::need($me, ['manage customer', 'show customer']);
+        abort_if($this->namesOnly(), 403);
         $company = $this->companyId();
         $client = Access::customers($me)->findOrFail($customer);
 

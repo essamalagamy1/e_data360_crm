@@ -154,7 +154,7 @@
         @endif
     </div>
 
-    @if ($invoice->payments->isNotEmpty())
+    @if ($invoice->payments->isNotEmpty() || ($calc['marked'] ?? 0) > 0)
         <section class="inv-block">
             <h2><x-ed.bi ar="المدفوعات" en="Payments" /></h2>
             <ul class="inv-pays">
@@ -165,6 +165,13 @@
                         <span class="is-sub">{{ $accountNames[$payment->account_id] ?? '' }}@if ($payment->reference) <bdi>{{ $payment->reference }}</bdi>@endif</span>
                     </li>
                 @endforeach
+                @if (($calc['marked'] ?? 0) > 0)
+                    <li>
+                        <span>{{ Labels::date($invoice->collected_on) }}</span>
+                        <b class="ed-num"><bdi>{{ $money($calc['marked']) }}</bdi></b>
+                        <span class="is-sub">{{ app()->getLocale() === 'en' ? 'Collected' : 'تم التحصيل' }}</span>
+                    </li>
+                @endif
             </ul>
         </section>
     @endif

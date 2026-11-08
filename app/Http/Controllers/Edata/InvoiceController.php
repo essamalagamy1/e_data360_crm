@@ -148,12 +148,21 @@ class InvoiceController extends BaseController
         $company = $this->companyId();
         $data = $this->validated($request);
 
-        $invoice = DB::transaction(function () use ($data, $company, $me) {
+        // Who cannot issue invoices still saves a draft, exactly as before.
+        $state = $me->can('send invoice')
+            ? $request->validate(['payment_state' => 'required|in:collected,pending'], [], ['payment_state' => 'حالة الدفع'])['payment_state']
+            : 'draft';
+
+        $invoice = DB::transaction(function () use ($data, $company, $me, $state) {
             $last = (int) Invoice::where('created_by', $company)->lockForUpdate()->max('invoice_id');
 
             $invoice = new Invoice();
             $invoice->invoice_id = $last + 1;
-            $invoice->status = 0;
+            $invoice->status = match ($state) {
+                'collected' => 4,
+                'pending' => 1,
+                default => 0,
+            };
             $invoice->created_by = $company;
             $invoice->customer_id = $data['customer_id'];
             $invoice->project_id = $data['project_id'] ?? null;
@@ -162,14 +171,79 @@ class InvoiceController extends BaseController
             $invoice->category_id = $data['category_id'];
             $invoice->ref_number = $data['ref_number'] ?? null;
             $invoice->notes = $data['notes'] ?? null;
+            if ($state !== 'draft') {
+                $invoice->send_date = Carbon::today()->toDateString();
+            }
+            if ($state === 'collected') {
+                $invoice->collected_on = $data['issue_date'];
+            }
             $invoice->save();
 
             $this->writeItems($invoice, $data['items'], $me);
+            if ($state !== 'draft') {
+                $this->writeLedger($invoice, $company);
+            }
 
             return $invoice;
         });
 
-        return $this->done('تم إنشاء الفاتورة ' . Fmt::invoiceNumber($invoice->invoice_id, $company) . ' كمسودة.', route('edata.invoices.show', $invoice->id));
+        $number = Fmt::invoiceNumber($invoice->invoice_id, $company);
+        $message = match ($state) {
+            'collected' => 'تم إنشاء الفاتورة ' . $number . ' كفاتورة متحصلة.',
+            'pending' => 'تم إنشاء الفاتورة ' . $number . ' وهي قيد الدفع.',
+            default => 'تم إنشاء الفاتورة ' . $number . ' كمسودة.',
+        };
+
+        return $this->done($message, route('edata.invoices.show', $invoice->id));
+    }
+
+    /** The money arrived outside the system: the whole remaining amount counts as collected today. */
+    public function markCollected(Request $request, int $invoice)
+    {
+        $me = $this->me();
+        Access::need($me, 'create payment invoice');
+        $company = $this->companyId();
+        $record = Access::invoices($me)->with(['items', 'payments'])->findOrFail($invoice);
+
+        if ($record->cancelled_at || (int) $record->status === 0) {
+            return $this->failed('يمكن تحديد التحصيل للفواتير المرسلة فقط.');
+        }
+
+        $data = $request->validate(['collected_on' => 'nullable|date|before_or_equal:today'], [], ['collected_on' => 'تاريخ التحصيل']);
+        InvoiceMath::attach(collect([$record]), $company);
+        if ($record->calc['due'] <= 0) {
+            return $this->failed('هذه الفاتورة متحصلة بالكامل بالفعل.');
+        }
+        unset($record->calc);
+
+        $record->collected_on = $data['collected_on'] ?? Carbon::today()->toDateString();
+        $record->status = 4;
+        $record->save();
+
+        return $this->done('تم تحديد الفاتورة كمتحصلة.');
+    }
+
+    /** Undoes a collection marked by mistake. Real payment entries are not touched. */
+    public function markPending(int $invoice)
+    {
+        $me = $this->me();
+        Access::need($me, 'create payment invoice');
+        $company = $this->companyId();
+        $record = Access::invoices($me)->with(['items', 'payments'])->findOrFail($invoice);
+
+        if (!$record->collected_on) {
+            return $this->failed('هذه الفاتورة غير محددة كمتحصلة.');
+        }
+
+        $record->collected_on = null;
+        InvoiceMath::attach(collect([$record]), $company);
+        $paid = $record->calc['paid'];
+        $due = $record->calc['due'];
+        unset($record->calc);
+        $record->status = $due <= 0 ? 4 : ($paid > 0 ? 3 : 1);
+        $record->save();
+
+        return $this->done('رجعت الفاتورة إلى قيد الدفع.');
     }
 
     public function show(int $invoice)
@@ -622,6 +696,7 @@ class InvoiceController extends BaseController
             'categories' => ProductServiceCategory::where('created_by', $company)->where('type', 'income')->orderBy('name')->get(['id', 'name']),
             'taxes' => Tax::where('created_by', $company)->get(['id', 'name', 'rate']),
             'locked' => $invoice->exists && $invoice->payments->isNotEmpty(),
+            'canIssue' => $me->can('send invoice'),
             'company' => $company,
         ];
     }

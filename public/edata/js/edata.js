@@ -634,6 +634,154 @@
         return chart;
     };
 
+    /* ---------- Searchable lists ----------
+       A long <select> gets a text box that filters as you type. The original select
+       stays in the form, so submitting, old values and validation work as before.
+       Arabic letter forms are folded, so «احمد» finds «أحمد» and «مؤسسة» finds «موسسه». */
+    function fold(text) {
+        return String(text || '').toLowerCase()
+            .replace(/[ً-ْـ]/g, '')
+            .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
+            .replace(/\s+/g, ' ').trim();
+    }
+    $$('select[data-searchable]').forEach(function (select) {
+        if (select.disabled || select.multiple) { return; }
+
+        var wrap = document.createElement('div');
+        wrap.className = 'ed-combo';
+        select.parentNode.insertBefore(wrap, select);
+        wrap.appendChild(select);
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'ed-input ed-combo__input' + (select.classList.contains('is-invalid') ? ' is-invalid' : '');
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        input.placeholder = select.dataset.searchPlaceholder || '';
+        input.setAttribute('role', 'combobox');
+        input.setAttribute('aria-expanded', 'false');
+        input.setAttribute('aria-autocomplete', 'list');
+        // The field's label points at this id, so it now focuses the search box.
+        if (select.id) {
+            input.id = select.id;
+            select.id = select.id + '__native';
+        }
+        select.classList.add('ed-combo__native');
+        select.tabIndex = -1;
+        select.setAttribute('aria-hidden', 'true');
+
+        var list = document.createElement('ul');
+        list.className = 'ed-combo__list';
+        list.hidden = true;
+        list.id = (input.id || select.name) + '__list';
+        list.setAttribute('role', 'listbox');
+        input.setAttribute('aria-controls', list.id);
+        var caret = document.createElement('i');
+        caret.className = 'ti ti-chevron-down ed-combo__caret';
+        caret.setAttribute('aria-hidden', 'true');
+        wrap.appendChild(input);
+        wrap.appendChild(caret);
+        wrap.appendChild(list);
+
+        var options = Array.prototype.filter.call(select.options, function (o) { return o.value !== '' || !select.required; })
+            .map(function (o) { return { value: o.value, text: o.text, key: fold(o.text) }; });
+        var shown = [];
+        var active = -1;
+
+        function currentText() {
+            var o = select.options[select.selectedIndex];
+            return o && o.value !== '' ? o.text : '';
+        }
+        function mark(text, query) {
+            var safe = escapeHtml(text);
+            var q = query.trim();
+            if (!q) { return safe; }
+            var at = text.toLowerCase().indexOf(q.toLowerCase());
+            if (at < 0) { return safe; }
+            return escapeHtml(text.slice(0, at)) + '<mark>' + escapeHtml(text.slice(at, at + q.length)) + '</mark>' + escapeHtml(text.slice(at + q.length));
+        }
+        function paint() {
+            $$('li', list).forEach(function (li, i) {
+                li.classList.toggle('is-active', i === active);
+                li.setAttribute('aria-selected', i === active ? 'true' : 'false');
+                if (i === active) { li.scrollIntoView({ block: 'nearest' }); }
+            });
+        }
+        function render(query) {
+            var q = fold(query);
+            shown = options.filter(function (o) { return !q || o.key.indexOf(q) !== -1; });
+            if (q) {
+                // Names that start with what was typed come first.
+                shown.sort(function (a, b) { return (a.key.indexOf(q) === 0 ? 0 : 1) - (b.key.indexOf(q) === 0 ? 0 : 1); });
+            }
+            shown = shown.slice(0, 100);
+            if (!shown.length) {
+                active = -1;
+                list.innerHTML = '<li class="is-empty">' + escapeHtml(select.dataset.searchEmpty || '') + '</li>';
+                return;
+            }
+            active = 0;
+            shown.forEach(function (o, i) { if (!q && o.value === select.value) { active = i; } });
+            list.innerHTML = shown.map(function (o, i) {
+                return '<li role="option" data-i="' + i + '"' + (o.value === select.value ? ' class="is-selected"' : '') + '>' + mark(o.text, query) + '</li>';
+            }).join('');
+            paint();
+        }
+        function open() {
+            render('');
+            list.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
+        }
+        function close() {
+            list.hidden = true;
+            input.setAttribute('aria-expanded', 'false');
+            input.value = currentText();
+        }
+        function choose(i) {
+            var o = shown[i];
+            if (!o) { return; }
+            select.value = o.value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            input.classList.remove('is-invalid');
+            close();
+        }
+
+        input.value = currentText();
+        input.addEventListener('focus', function () { open(); input.select(); });
+        input.addEventListener('click', function () { if (list.hidden) { open(); } });
+        input.addEventListener('input', function () {
+            render(input.value);
+            list.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
+        });
+        input.addEventListener('keydown', function (event) {
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (list.hidden) { open(); return; }
+                if (!shown.length) { return; }
+                active = (active + (event.key === 'ArrowDown' ? 1 : -1) + shown.length) % shown.length;
+                paint();
+            } else if (event.key === 'Enter') {
+                if (!list.hidden && active >= 0) {
+                    event.preventDefault();
+                    choose(active);
+                }
+            } else if (event.key === 'Escape') {
+                if (!list.hidden) { event.stopPropagation(); close(); }
+            } else if (event.key === 'Tab') {
+                close();
+            }
+        });
+        list.addEventListener('mousedown', function (event) {
+            event.preventDefault();
+            var li = event.target.closest('li[data-i]');
+            if (li) { choose(parseInt(li.dataset.i, 10)); }
+        });
+        input.addEventListener('blur', function () { setTimeout(close, 120); });
+        // A rejected submit shows its message on the visible box.
+        select.addEventListener('invalid', function () { input.classList.add('is-invalid'); input.focus(); });
+    });
+
     /* ---------- Flash messages from the server ---------- */
     (window.edFlash || []).forEach(function (flash) { toast(flash.text, flash.type); });
 })();

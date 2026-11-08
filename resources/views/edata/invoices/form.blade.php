@@ -38,7 +38,7 @@
             <div class="ed-panel__body">
                 <div class="ed-form ed-form--3">
                     <x-ed.field :label="__('العميل')" name="customer_id" required>
-                        <select class="ed-select @error('customer_id') is-invalid @enderror" id="customer_id" name="customer_id" required @disabled($locked)>
+                        <select class="ed-select @error('customer_id') is-invalid @enderror" id="customer_id" name="customer_id" required @disabled($locked) data-searchable data-search-placeholder="{{ __('اكتب اسم العميل للبحث') }}" data-search-empty="{{ __('لا يوجد عميل بهذا الاسم.') }}">
                             <option value="">{{ __('اختر عميلاً') }}</option>
                             @foreach ($customers as $c)
                                 <option value="{{ $c->id }}" @selected((int) old('customer_id', $invoice->customer_id) === (int) $c->id)>{{ $c->name }}</option>
@@ -46,7 +46,7 @@
                         </select>
                     </x-ed.field>
                     <x-ed.field :label="__('المشروع المرتبط')" name="project_id">
-                        <select class="ed-select" id="project_id" name="project_id">
+                        <select class="ed-select" id="project_id" name="project_id" data-searchable data-search-placeholder="{{ __('اكتب اسم المشروع للبحث') }}" data-search-empty="{{ __('لا يوجد مشروع بهذا الاسم.') }}">
                             <option value="">{{ __('بدون مشروع') }}</option>
                             @foreach ($projects as $p)
                                 <option value="{{ $p->id }}" @selected((int) old('project_id', $invoice->project_id) === (int) $p->id)>{{ $p->project_name }}</option>
@@ -69,6 +69,25 @@
                     <x-ed.field :label="__('رقم المرجع')" name="ref_number">
                         <input class="ed-input" id="ref_number" name="ref_number" value="{{ old('ref_number', $invoice->ref_number) }}">
                     </x-ed.field>
+                    @if (!$invoice->exists && $canIssue)
+                        @php $paymentState = old('payment_state', 'collected'); @endphp
+                        <div class="ed-field ed-field--full">
+                            <span class="ed-label">{{ __('حالة الدفع') }}<em>*</em></span>
+                            <div class="ed-paystate" role="radiogroup" aria-label="{{ __('حالة الدفع') }}">
+                                <label class="ed-paystate__opt">
+                                    <input type="radio" name="payment_state" value="collected" @checked($paymentState === 'collected') required>
+                                    <i class="ti ti-circle-check"></i>
+                                    <span><b>{{ __('تم التحصيل') }}</b><small>{{ __('المبلغ وصل، وتُحسب الفاتورة متحصلة بتاريخ إصدارها.') }}</small></span>
+                                </label>
+                                <label class="ed-paystate__opt">
+                                    <input type="radio" name="payment_state" value="pending" @checked($paymentState === 'pending')>
+                                    <i class="ti ti-clock"></i>
+                                    <span><b>{{ __('قيد الدفع') }}</b><small>{{ __('لم يصل المبلغ بعد، وتظهر في المستحقات حتى تحصيلها.') }}</small></span>
+                                </label>
+                            </div>
+                            @error('payment_state')<span class="ed-error">{{ $message }}</span>@enderror
+                        </div>
+                    @endif
                 </div>
             </div>
         </section>

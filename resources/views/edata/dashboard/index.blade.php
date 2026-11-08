@@ -139,10 +139,20 @@
         </section>
     @endif
 
+    @php
+        $sumCreated = array_sum($taskCreated);
+        $sumCompleted = array_sum($taskCompleted);
+        $pct = fn ($part, $whole) => $whole > 0 ? (int) round($part / $whole * 100) : 0;
+    @endphp
     <div class="ed-grid ed-grid--2">
         <section class="ed-panel">
             <div class="ed-panel__head"><div><h2>{{ __('المهام: الجديدة والمنجزة') }}</h2><p>{{ Labels::date($from) }} - {{ Labels::date($to) }}</p></div></div>
-            <div class="ed-panel__body" style="padding-top:6px"><div id="chartTasks" class="ed-chart is-loading"></div></div>
+            <div class="ed-chartsum">
+                <div><span><i style="background:#0086AD"></i>{{ __('مهام جديدة') }}</span><b class="ed-num">{{ number_format($sumCreated) }}</b></div>
+                <div><span><i style="background:#6FAE00"></i>{{ __('مهام أُنجزت') }}</span><b class="ed-num">{{ number_format($sumCompleted) }}</b></div>
+                <div><span>{{ __('نسبة الإنجاز إلى الجديد') }}</span><b class="ed-num">{{ $pct($sumCompleted, $sumCreated) }}%</b></div>
+            </div>
+            <div class="ed-panel__body" style="padding-top:0"><div id="chartTasks" class="ed-chart is-loading"></div></div>
         </section>
 
         <section class="ed-panel">
@@ -151,13 +161,16 @@
                 @if ($statusRows->isEmpty())
                     <x-ed.empty small icon="ti-chart-bar" :title="__('لا توجد مشاريع لعرضها.')" />
                 @else
-                    @php $statusMax = max(1, $statusRows->max('value')); @endphp
+                    @php
+                        $statusMax = max(1, $statusRows->max('value'));
+                        $statusSum = max(1, $statusRows->sum('value'));
+                    @endphp
                     <div class="ed-hbars">
                         @foreach ($statusRows as $row)
                             <div class="ed-hbar" title="{{ $row['label'] }}: {{ $row['value'] }}">
                                 <span class="ed-hbar__label">{{ $row['label'] }}</span>
                                 <div class="ed-hbar__track"><div class="ed-hbar__seg ed-hbar__seg--a" style="--w:{{ round($row['value'] / $statusMax * 100, 1) }}%"></div></div>
-                                <span class="ed-hbar__value">{{ number_format($row['value']) }}</span>
+                                <span class="ed-hbar__value">{{ number_format($row['value']) }} <small>{{ $pct($row['value'], $statusSum) }}%</small></span>
                             </div>
                         @endforeach
                     </div>
@@ -168,7 +181,16 @@
         @if ($money)
             <section class="ed-panel">
                 <div class="ed-panel__head"><div><h2>{{ __('الفواتير مقابل التحصيل') }}</h2><p>{{ __('آخر 6 أشهر') }}</p></div></div>
-                <div class="ed-panel__body" style="padding-top:6px"><div id="chartMoney" class="ed-chart is-loading"></div></div>
+                @php
+                    $sumBilled = array_sum($moneyBilled);
+                    $sumCollected = array_sum($moneyCollected);
+                @endphp
+                <div class="ed-chartsum">
+                    <div><span><i style="background:#0086AD"></i>{{ __('قيمة الفواتير') }}</span><b class="ed-num">{{ Fmt::money($sumBilled, $company) }}</b></div>
+                    <div><span><i style="background:#6FAE00"></i>{{ __('المحصّل') }}</span><b class="ed-num">{{ Fmt::money($sumCollected, $company) }}</b></div>
+                    <div><span>{{ __('نسبة التحصيل') }}</span><b class="ed-num">{{ $pct($sumCollected, $sumBilled) }}%</b></div>
+                </div>
+                <div class="ed-panel__body" style="padding-top:0"><div id="chartMoney" class="ed-chart is-loading"></div></div>
             </section>
         @endif
 
@@ -191,7 +213,7 @@
                                     <div class="ed-hbar__seg ed-hbar__seg--b" style="--w:{{ round($row['completed'] / $taskMax * 100, 1) }}%"></div>
                                     <div class="ed-hbar__seg ed-hbar__seg--a" style="--w:{{ round($row['open'] / $taskMax * 100, 1) }}%"></div>
                                 </div>
-                                <span class="ed-hbar__value">{{ $row['completed'] }}/{{ $row['open'] }}</span>
+                                <span class="ed-hbar__value">{{ $row['completed'] }}/{{ $row['open'] }} <small>{{ $pct($row['completed'], $row['completed'] + $row['open']) }}%</small></span>
                             </a>
                         @endforeach
                     </div>
@@ -206,6 +228,11 @@
                     @if (empty($attendanceTrend))
                         <x-ed.empty small icon="ti-chart-line" :title="__('لا توجد أيام عمل في هذه الفترة.')" />
                     @else
+                        <div class="ed-chartsum is-inline">
+                            <div><span>{{ __('متوسط الالتزام') }}</span><b class="ed-num">{{ (int) round(array_sum($attendanceTrend) / count($attendanceTrend)) }}%</b></div>
+                            <div><span>{{ __('أعلى يوم') }}</span><b class="ed-num">{{ max($attendanceTrend) }}%</b></div>
+                            <div><span>{{ __('أقل يوم') }}</span><b class="ed-num">{{ min($attendanceTrend) }}%</b></div>
+                        </div>
                         <div id="chartAttendance" class="ed-chart is-loading"></div>
                     @endif
                 </div>
@@ -327,45 +354,93 @@
         return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'ar-EG', Object.assign({ numberingSystem: 'latn' }, opts)).format(date);
     }
 
-    edChart('#chartTasks', {
-        chart: { type: 'area', height: 270 },
-        series: [
-            { name: @json(__('مهام جديدة')), data: @json($taskCreated) },
-            { name: @json(__('مهام أُنجزت')), data: @json($taskCompleted) }
-        ],
-        colors: [teal, leaf],
-        stroke: { width: 2, curve: 'smooth' },
-        fill: { type: 'gradient', gradient: { opacityFrom: .18, opacityTo: 0 } },
-        markers: { size: 0, hover: { size: 5 } },
-        xaxis: { categories: @json($taskLabels).map(shortDate), tickAmount: 6, labels: { rotate: 0, hideOverlappingLabels: true }, tooltip: { enabled: false } },
-        yaxis: { min: 0, forceNiceScale: true, labels: { formatter: function (v) { return Math.round(v); } } },
-        tooltip: { shared: true, intersect: false }
-    });
+    function compact(v) {
+        if (!v) { return ''; }
+        return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'K' : String(Math.round(v));
+    }
+    // Values sit on top of each bar, so they read as numbers, not as a shape to guess.
+    var labelsOnTop = { enabled: true, offsetY: -18, style: { fontSize: '11px', fontWeight: 700, colors: ['#46596B'] }, background: { enabled: false } };
 
-    edChart('#chartMoney', {
-        chart: { type: 'bar', height: 270 },
-        series: [
-            { name: @json(__('قيمة الفواتير')), data: @json($moneyBilled) },
-            { name: @json(__('المحصّل')), data: @json($moneyCollected) }
-        ],
-        colors: [teal, leaf],
-        plotOptions: { bar: { columnWidth: '56%', borderRadius: 4, borderRadiusApplication: 'end' } },
-        stroke: { show: true, width: 2, colors: ['transparent'] },
-        xaxis: { categories: @json($moneyLabels).map(shortDate) },
-        yaxis: { min: 0, labels: { formatter: function (v) { return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'K' : Math.round(v); } } },
-        tooltip: { shared: true, intersect: false, y: { formatter: function (v) { return v.toLocaleString('en-US') + ' ' + @json(\App\Support\Edata\Fmt::settings($company)['site_currency_symbol'] ?? ''); } } }
-    });
+    // A month of days is too many bars to label, so long ranges are shown week by week.
+    (function () {
+        var keys = @json($taskLabels), created = @json($taskCreated), done = @json($taskCompleted);
+        var labels = keys.map(shortDate), a = created, b = done;
+        if (keys.length > 14) {
+            labels = []; a = []; b = [];
+            for (var i = 0; i < keys.length; i += 7) {
+                var end = Math.min(i + 6, keys.length - 1);
+                labels.push(shortDate(keys[i]));
+                a.push(created.slice(i, end + 1).reduce(function (s, v) { return s + v; }, 0));
+                b.push(done.slice(i, end + 1).reduce(function (s, v) { return s + v; }, 0));
+            }
+        }
+        edChart('#chartTasks', {
+            chart: { type: 'bar', height: 280 },
+            series: [
+                { name: @json(__('مهام جديدة')), data: a },
+                { name: @json(__('مهام أُنجزت')), data: b }
+            ],
+            colors: [teal, leaf],
+            plotOptions: { bar: { columnWidth: '58%', borderRadius: 4, borderRadiusApplication: 'end', dataLabels: { position: 'top' } } },
+            stroke: { show: true, width: 2, colors: ['transparent'] },
+            // Tasks finished in a week are often older tasks, so a per-bar percentage would mislead;
+            // the overall ratio sits in the summary above the chart.
+            dataLabels: Object.assign({}, labelsOnTop, { formatter: function (v) { return v ? v : ''; } }),
+            legend: { show: false },
+            xaxis: { categories: labels, labels: { rotate: 0, hideOverlappingLabels: true, trim: true } },
+            yaxis: { min: 0, forceNiceScale: true, labels: { formatter: function (v) { return Math.round(v); } } },
+            tooltip: { shared: true, intersect: false }
+        });
+    })();
 
-    edChart('#chartAttendance', {
-        chart: { type: 'line', height: 270 },
-        series: [{ name: @json(__('الالتزام')), data: @json(array_values($attendanceTrend)) }],
-        colors: [teal],
-        stroke: { width: 2, curve: 'straight' },
-        markers: { size: 3, strokeWidth: 0, hover: { size: 6 } },
-        xaxis: { categories: @json(array_keys($attendanceTrend)).map(shortDate), tickAmount: 6, labels: { rotate: 0, hideOverlappingLabels: true }, tooltip: { enabled: false } },
-        yaxis: { min: 0, max: 100, tickAmount: 4, labels: { formatter: function (v) { return Math.round(v) + '%'; } } },
-        legend: { show: false }
-    });
+    (function () {
+        var billed = @json($moneyBilled), collected = @json($moneyCollected);
+        edChart('#chartMoney', {
+            chart: { type: 'bar', height: 280 },
+            series: [
+                { name: @json(__('قيمة الفواتير')), data: billed },
+                { name: @json(__('المحصّل')), data: collected }
+            ],
+            colors: [teal, leaf],
+            // Two bars of similar height would put their numbers on top of each other, so the
+            // numbers run upright inside each bar. A monthly percentage is left out on purpose:
+            // money collected this month often belongs to last month's invoices.
+            plotOptions: { bar: { columnWidth: '62%', borderRadius: 4, borderRadiusApplication: 'end', dataLabels: { position: 'center', orientation: 'vertical' } } },
+            stroke: { show: true, width: 2, colors: ['transparent'] },
+            dataLabels: {
+                enabled: true,
+                style: { fontSize: '11px', fontWeight: 700, colors: ['#fff'] },
+                formatter: function (v) { return v ? compact(v) : ''; }
+            },
+            legend: { show: false },
+            grid: { padding: { left: 18, right: 8 } },
+            xaxis: { categories: @json($moneyLabels).map(shortDate) },
+            yaxis: { min: 0, labels: { formatter: function (v) { return compact(v) || '0'; } } },
+            tooltip: { shared: true, intersect: false, y: { formatter: function (v) { return v.toLocaleString('en-US') + ' ' + @json(\App\Support\Edata\Fmt::settings($company)['site_currency_symbol'] ?? ''); } } }
+        });
+    })();
+
+    (function () {
+        var values = @json(array_values($attendanceTrend));
+        var many = values.length > 12;
+        edChart('#chartAttendance', {
+            chart: { type: 'line', height: 280 },
+            series: [{ name: @json(__('الالتزام')), data: values }],
+            colors: [teal],
+            stroke: { width: 2, curve: 'straight' },
+            markers: { size: 4, strokeWidth: 0, hover: { size: 6 } },
+            dataLabels: {
+                enabled: true, offsetY: -8,
+                style: { fontSize: '10.5px', fontWeight: 700, colors: ['#01485A'] },
+                background: { enabled: true, foreColor: '#01485A', borderWidth: 0, borderRadius: 3, padding: 3, opacity: .9 },
+                // With many days, every other point is labelled so the numbers stay legible.
+                formatter: function (v, o) { return (!many || o.dataPointIndex % 2 === 0 || o.dataPointIndex === values.length - 1) ? v + '%' : ''; }
+            },
+            xaxis: { categories: @json(array_keys($attendanceTrend)).map(shortDate), tickAmount: 6, labels: { rotate: 0, hideOverlappingLabels: true }, tooltip: { enabled: false } },
+            yaxis: { min: 0, max: 110, tickAmount: 4, labels: { formatter: function (v) { return v > 100 ? '' : Math.round(v) + '%'; } } },
+            legend: { show: false }
+        });
+    })();
 })();
 </script>
 @endpush

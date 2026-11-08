@@ -41,16 +41,18 @@ class InvoiceTest extends EdataTestCase
                 ['product_id' => $product->id, 'quantity' => 2, 'price' => 500, 'discount' => 100, 'description' => 'first'],
                 ['product_id' => $product->id, 'quantity' => 1, 'price' => 200, 'discount' => 0, 'description' => 'second'],
             ],
+            'payment_state' => 'pending',
         ])->assertSessionHasNoErrors()->assertRedirect();
 
         $invoice = Invoice::where('customer_id', $customer->id)->with('items', 'payments')->firstOrFail();
         InvoiceMath::attach(collect([$invoice]), $this->company);
 
-        $this->assertSame(0, (int) $invoice->status);
+        $this->assertSame(1, (int) $invoice->status);
         $this->assertSame(1200.0, $invoice->calc['subtotal']);
         $this->assertSame(100.0, $invoice->calc['discount']);
         $this->assertSame(1100.0, $invoice->calc['total']);
-        $this->assertSame('draft', $invoice->calc['state']);
+        $this->assertSame(1100.0, $invoice->calc['due']);
+        $this->assertSame('sent', $invoice->calc['state']);
     }
 
     public function test_tax_is_calculated_on_the_line_after_discount(): void

@@ -274,6 +274,19 @@ class DashboardController extends BaseController
             }
         }
 
+        // Invoices marked collected count in the month they were collected.
+        $marked = Invoice::where('created_by', $company)
+            ->whereNull('cancelled_at')
+            ->whereDate('collected_on', '>=', $start->toDateString())
+            ->get();
+        InvoiceMath::attach($marked, $company);
+        foreach ($marked as $invoice) {
+            $key = Carbon::parse($invoice->collected_on)->format('Y-m');
+            if (isset($months[$key])) {
+                $months[$key]['collected'] += $invoice->calc['marked'];
+            }
+        }
+
         return $months;
     }
 

@@ -151,6 +151,8 @@ Route::middleware(['auth', 'verified', 'XSS', 'revalidate'])->group(function () 
     Route::post('invoices/{invoice}/sent', [InvoiceController::class, 'markSent'])->whereNumber('invoice')->name('edata.invoices.sent');
     Route::post('invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->whereNumber('invoice')->name('edata.invoices.cancel');
     Route::post('invoices/{invoice}/relink', [InvoiceController::class, 'relink'])->whereNumber('invoice')->name('edata.invoices.relink');
+    Route::post('invoices/{invoice}/collected', [InvoiceController::class, 'markCollected'])->whereNumber('invoice')->name('edata.invoices.collected');
+    Route::post('invoices/{invoice}/pending', [InvoiceController::class, 'markPending'])->whereNumber('invoice')->name('edata.invoices.pending');
     Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'addPayment'])->whereNumber('invoice')->name('edata.invoices.payment');
     Route::delete('invoices/{invoice}/payments/{payment}', [InvoiceController::class, 'removePayment'])->whereNumber('invoice')->whereNumber('payment')->name('edata.invoices.payment.remove');
     Route::get('invoice', [LegacyRedirectController::class, 'invoices'])->name('invoice.index');

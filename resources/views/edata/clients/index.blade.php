@@ -57,37 +57,48 @@
                 @if ($canCreate)<a class="ed-btn ed-btn--primary" href="{{ route('edata.clients.create') }}">{{ __('إضافة عميل') }}</a>@endif
             </x-ed.empty>
         @else
-            <div class="ed-table-wrap">
-                <table class="ed-table">
-                    <thead>
-                        <tr><th>{{ __('العميل') }}</th><th>{{ __('التواصل') }}</th><th>{{ __('الموقع') }}</th><th>{{ __('المشاريع') }}</th><th>{{ __('قيمة التعاملات') }}</th><th>{{ __('المتبقي') }}</th><th>{{ __('الحالة') }}</th></tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($clients as $client)
-                            <tr>
-                                <td>
-                                    <a class="ed-table__title" href="{{ route('edata.clients.show', $client->id) }}">{{ $client->name }}</a>
-                                    <span class="ed-table__sub">{{ $client->contact_person ?: $client->industry }}</span>
-                                </td>
-                                <td>
-                                    <span class="ed-ltr">{{ $client->contact }}</span>
-                                    <span class="ed-table__sub">{{ $client->email }}</span>
-                                </td>
-                                <td>{{ collect([$client->billing_city, $client->billing_country])->filter()->implode('، ') ?: '—' }}</td>
-                                <td class="ed-num">{{ $projectCounts[$client->id] ?? 0 }}</td>
-                                <td class="ed-num">{{ Fmt::money($money[$client->id]['total'] ?? 0, $company) }}</td>
-                                <td class="ed-num {{ ($money[$client->id]['due'] ?? 0) > 0 ? 'tone-text-bad' : '' }}">{{ Fmt::money($money[$client->id]['due'] ?? 0, $company) }}</td>
-                                <td>
-                                    @if ($client->archived_at)
-                                        <x-ed.badge tone="muted" :text="__('مؤرشف')" />
-                                    @else
-                                        <x-ed.badge :pair="Labels::client($client->crm_status)" />
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            <div class="ed-ccards">
+                @foreach ($clients as $client)
+                    @php
+                        $m = $money[$client->id] ?? ['total' => 0, 'paid' => 0, 'due' => 0, 'count' => 0];
+                        $collectedPct = $m['total'] > 0 ? (int) round($m['paid'] / $m['total'] * 100) : null;
+                        $place = collect([$client->billing_city, $client->billing_country])->filter()->implode('، ');
+                    @endphp
+                    <a class="ed-ccard {{ $client->archived_at ? 'is-archived' : '' }}" href="{{ route('edata.clients.show', $client->id) }}">
+                        <div class="ed-ccard__top">
+                            <span class="ed-cmark" style="--h: {{ crc32($client->name) % 5 }}" aria-hidden="true">{{ mb_substr(trim($client->name), 0, 1) }}</span>
+                            <div class="ed-ccard__id">
+                                <b>{{ $client->name }}</b>
+                                <span>{{ collect([$client->contact_person, $client->industry])->filter()->implode('، ') ?: __('بدون تفاصيل إضافية') }}</span>
+                            </div>
+                            @if ($client->archived_at)
+                                <x-ed.badge tone="muted" :text="__('مؤرشف')" />
+                            @else
+                                <x-ed.badge :pair="Labels::client($client->crm_status)" />
+                            @endif
+                        </div>
+
+                        <div class="ed-ccard__contact">
+                            @if ($place)<span><i class="ti ti-map-pin"></i>{{ $place }}</span>@endif
+                            @if ($client->contact)<span><i class="ti ti-phone"></i><bdi>{{ $client->contact }}</bdi></span>@endif
+                            @if ($client->email)<span><i class="ti ti-mail"></i><bdi>{{ $client->email }}</bdi></span>@endif
+                        </div>
+
+                        <dl class="ed-ccard__nums">
+                            <div><dt>{{ __('المشاريع') }}</dt><dd class="ed-num">{{ $projectCounts[$client->id] ?? 0 }}</dd></div>
+                            <div><dt>{{ __('الفواتير') }}</dt><dd class="ed-num">{{ $m['count'] }}</dd></div>
+                            <div><dt>{{ __('قيمة التعاملات') }}</dt><dd class="ed-num">{{ Fmt::money($m['total'], $company) }}</dd></div>
+                            <div><dt>{{ __('المتبقي') }}</dt><dd class="ed-num {{ $m['due'] > 0 ? 'tone-text-bad' : '' }}">{{ Fmt::money($m['due'], $company) }}</dd></div>
+                        </dl>
+
+                        @if ($collectedPct !== null)
+                            <div class="ed-ccard__paid">
+                                <div class="ed-progress {{ $collectedPct >= 100 ? 'is-good' : '' }}"><i style="--v: {{ min(100, $collectedPct) }}%"></i></div>
+                                <span class="ed-num">{{ __('تم تحصيل :pct%', ['pct' => $collectedPct]) }}</span>
+                            </div>
+                        @endif
+                    </a>
+                @endforeach
             </div>
             <x-ed.pager :items="$clients" />
         @endif

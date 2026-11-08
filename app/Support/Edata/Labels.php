@@ -31,9 +31,9 @@ class Labels
 
     public const INVOICE_STATES = [
         'draft' => ['مسودة', 'muted'],
-        'sent' => ['مرسلة', 'info'],
+        'sent' => ['قيد الدفع', 'info'],
         'partial' => ['مدفوعة جزئياً', 'warn'],
-        'paid' => ['مدفوعة', 'good'],
+        'paid' => ['تم التحصيل', 'good'],
         'overdue' => ['متأخرة', 'bad'],
         'cancelled' => ['ملغاة', 'neutral'],
     ];

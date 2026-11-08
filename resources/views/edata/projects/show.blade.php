@@ -77,7 +77,11 @@
                     <dt>{{ __('العميل') }}</dt>
                     <dd>
                         @if ($project->customer)
-                            <a class="ed-link" href="{{ route('edata.clients.show', $project->customer_id) }}">{{ $project->customer->name }}</a>
+                            @if (\App\Support\Edata\Access::isOwner(auth()->user()) || auth()->user()->can('edit customer'))
+                                <a class="ed-link" href="{{ route('edata.clients.show', $project->customer_id) }}">{{ $project->customer->name }}</a>
+                            @else
+                                {{ $project->customer->name }}
+                            @endif
                         @else
                             {{ __('بدون عميل') }}
                             @if ($canEdit)<a class="ed-link" href="{{ route('projects.edit', $project->id) }}">{{ __('اربطه بعميل') }}</a>@endif

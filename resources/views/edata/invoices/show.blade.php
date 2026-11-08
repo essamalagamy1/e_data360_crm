@@ -50,6 +50,31 @@
             <x-ed.figure :label="__('المتبقي')" :money="max(0, $calc['due'])" :company="$company" :tone="$calc['due'] > 0 ? 'bad' : 'good'" />
         </div>
 
+        @if ($canPay && !$isCancelled && !$isDraft)
+            @if ($calc['due'] > 0)
+                <form class="ed-panel ed-collect" method="POST" action="{{ route('edata.invoices.collected', $invoice->id) }}" data-confirm="{{ __('تحديد الفاتورة كمتحصلة؟') }}" data-confirm-text="{{ __('يُحسب المتبقي كله كمبلغ متحصل في التاريخ المختار.') }}" data-confirm-yes="{{ __('تم التحصيل') }}" data-confirm-safe>
+                    @csrf
+                    <div class="ed-panel__body ed-stack" style="gap:10px">
+                        <div class="ed-collect__state"><i class="ti ti-clock"></i><span><b>{{ __('قيد الدفع') }}</b>{{ __('وصل المبلغ؟ حدّدها كمتحصلة بضغطة.') }}</span></div>
+                        <x-ed.field :label="__('تاريخ التحصيل')" name="collected_on">
+                            <input class="ed-input" type="date" id="collected_on" name="collected_on" value="{{ now()->toDateString() }}" max="{{ now()->toDateString() }}">
+                        </x-ed.field>
+                        <button class="ed-btn ed-btn--primary" type="submit"><i class="ti ti-circle-check"></i>{{ __('تم التحصيل') }}</button>
+                    </div>
+                </form>
+            @elseif ($invoice->collected_on)
+                <section class="ed-panel ed-collect is-done">
+                    <div class="ed-panel__body ed-stack" style="gap:10px">
+                        <div class="ed-collect__state"><i class="ti ti-circle-check"></i><span><b>{{ __('تم التحصيل') }}</b>{{ Labels::date($invoice->collected_on) }}</span></div>
+                        <form method="POST" action="{{ route('edata.invoices.pending', $invoice->id) }}" data-confirm="{{ __('إرجاع الفاتورة إلى قيد الدفع؟') }}" data-confirm-text="{{ __('تعود مبلغاً مستحقاً على العميل. الدفعات المسجلة لا تتغير.') }}" data-confirm-yes="{{ __('إرجاع لقيد الدفع') }}">
+                            @csrf
+                            <button class="ed-btn ed-btn--ghost ed-btn--sm" type="submit"><i class="ti ti-arrow-back-up"></i>{{ __('إرجاع لقيد الدفع') }}</button>
+                        </form>
+                    </div>
+                </section>
+            @endif
+        @endif
+
         <section class="ed-panel">
             <div class="ed-panel__head"><h2>{{ __('مشاركة مع العميل') }}</h2></div>
             <div class="ed-panel__body ed-stack" style="gap:10px">

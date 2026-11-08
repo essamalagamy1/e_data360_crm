@@ -72,17 +72,26 @@ class InvoiceMath
 
         $total = $subtotal - $discount + $tax;
         $paid = (float) $invoice->payments->sum('amount');
-        $due = round($total - $paid - $credit, 2);
+
+        // Marked as collected without a payment entry: whatever the payments do not
+        // cover counts as received on the collection date.
+        $marked = 0.0;
+        if ($invoice->collected_on && !$invoice->cancelled_at) {
+            $marked = max(0, round($total - $paid - $credit, 2));
+        }
+
+        $due = round($total - $paid - $marked - $credit, 2);
 
         return [
             'subtotal' => round($subtotal, 2),
             'discount' => round($discount, 2),
             'tax' => round($tax, 2),
             'total' => round($total, 2),
-            'paid' => round($paid, 2),
+            'paid' => round($paid + $marked, 2),
+            'marked' => $marked,
             'credit' => round($credit, 2),
             'due' => $due,
-            'state' => self::state($invoice, $due, $paid),
+            'state' => self::state($invoice, $due, $paid + $marked),
         ];
     }
 
@@ -165,14 +174,27 @@ class InvoiceMath
         ];
     }
 
-    /** Money actually received between two dates, from payment rows only. */
+    /**
+     * Money actually received between two dates: payment rows on their dates, plus
+     * invoices marked collected on their collection date for what payments did not cover.
+     */
     public static function collectedBetween(int $companyId, $from, $to, ?array $invoiceIds = null): float
     {
+        $range = [Carbon::parse($from)->toDateString(), Carbon::parse($to)->toDateString()];
         $invoices = Invoice::where('created_by', $companyId)->select('id');
 
-        $query = InvoicePayment::whereIn('invoice_id', $invoiceIds ?? $invoices)
-            ->whereBetween('date', [Carbon::parse($from)->toDateString(), Carbon::parse($to)->toDateString()]);
+        $payments = (float) InvoicePayment::whereIn('invoice_id', $invoiceIds ?? $invoices)
+            ->whereBetween('date', $range)
+            ->sum('amount');
 
-        return round((float) $query->sum('amount'), 2);
+        $markedQuery = Invoice::where('created_by', $companyId)
+            ->whereNull('cancelled_at')
+            ->whereBetween('collected_on', $range);
+        if ($invoiceIds !== null) {
+            $markedQuery->whereIn('id', $invoiceIds);
+        }
+        $marked = self::attach($markedQuery->get(), $companyId)->sum(fn ($invoice) => $invoice->calc['marked']);
+
+        return round($payments + (float) $marked, 2);
     }
 }
