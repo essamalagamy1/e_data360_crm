@@ -13,7 +13,8 @@
 #   SSH_USER     SSH username from hPanel
 #   SSH_KEY      the private key whose public half is added in hPanel
 #   DEPLOY_PATH  full path of the site folder, the one holding artisan and .env
-#   PHP_BIN      PHP 8.3 command on the server, e.g. /opt/alt/php83/usr/bin/php; optional
+#   PHP_BIN      PHP command on the server; optional. Without it, PHP 8.3 is used
+#                when the server has it (the version the site runs on), else `php`.
 
 name: Deploy to server
 
@@ -36,7 +37,7 @@ env:
   SSH_PORT: ${{ secrets.SSH_PORT || '65002' }}
   SSH_USER: ${{ secrets.SSH_USER }}
   DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-  PHP_BIN: ${{ secrets.PHP_BIN || 'php' }}
+  PHP_BIN: ${{ secrets.PHP_BIN || 'auto' }}
 
 jobs:
   deploy:
@@ -154,6 +155,11 @@ jobs:
           set -euo pipefail
           cd "$1"
           php="$2"
+          # The site runs on PHP 8.3 while the server's plain `php` may be newer.
+          if [ "$php" = "auto" ]; then
+            if [ -x /opt/alt/php83/usr/bin/php ]; then php=/opt/alt/php83/usr/bin/php; else php=php; fi
+          fi
+          "$php" -v | head -n 1
           "$php" artisan migrate --force
           "$php" artisan view:clear
           "$php" artisan route:clear
