@@ -9,8 +9,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ ltrim($printNumber, '#') }} - {{ $settings['company_name'] ?? 'E-Data 360' }}</title>
     <link rel="stylesheet" href="{{ asset('assets/fonts/tabler-icons.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('edata/css/edata.css') }}?v=2">
-    <link rel="stylesheet" href="{{ asset('edata/css/invoice.css') }}?v=2">
+    <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/edata.css') }}">
+    <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/invoice.css') }}">
     <style>
         body.ed-app { background: #E9EEF3; }
         .print-wrap { max-width: 860px; margin: 20px auto; padding-inline: 16px; }
@@ -30,6 +30,6 @@
         </div>
         @include('edata.invoices._sheet')
     </div>
-    <script src="{{ asset('edata/js/invoice.js') }}?v=2"></script>
+    <script src="{{ \App\Support\Edata\Fmt::asset('edata/js/invoice.js') }}"></script>
 </body>
 </html>

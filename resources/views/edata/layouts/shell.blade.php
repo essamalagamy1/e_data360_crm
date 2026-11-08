@@ -52,11 +52,11 @@
         <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
     @endunless
 
-    <link rel="stylesheet" href="{{ asset('edata/css/edata.css') }}?v=2">
-    <link rel="stylesheet" href="{{ asset('edata/css/edata-me.css') }}?v=2">
+    <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/edata.css') }}">
+    <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/edata-me.css') }}">
 
     @unless ($edIsNew)
-        <link rel="stylesheet" href="{{ asset('edata/css/edata-skin.css') }}?v=1">
+        <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/edata-skin.css') }}">
     @endunless
 
     @stack('css-page')
@@ -153,7 +153,7 @@
 
     <script>window.edFlash = @json($edFlash);</script>
     @stack('edata-vendor')
-    <script src="{{ asset('edata/js/edata.js') }}?v=2"></script>
+    <script src="{{ \App\Support\Edata\Fmt::asset('edata/js/edata.js') }}"></script>
     @stack('edata-scripts')
 </body>
 </html>

@@ -21,8 +21,8 @@
     <meta property="og:site_name" content="{{ $publicCompany }}">
     <link rel="icon" href="{{ $publicFavicon }}" type="image/png">
     <link rel="stylesheet" href="{{ asset('assets/fonts/tabler-icons.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('edata/css/edata.css') }}?v=2">
-    <link rel="stylesheet" href="{{ asset('edata/css/invoice.css') }}?v=2">
+    <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/edata.css') }}">
+    <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/invoice.css') }}">
     <style>
         body.ed-app { background: #E8EEF2; min-height: 100vh; }
         .pub { max-width: 892px; margin-inline: auto; padding: 18px 16px 40px; }
@@ -71,6 +71,6 @@
 
         <p class="pub-note">{{ __('هذه الصفحة خاصة بالفاتورة، ويفتحها من لديه الرابط فقط.') }}</p>
     </main>
-    <script src="{{ asset('edata/js/invoice.js') }}?v=2"></script>
+    <script src="{{ \App\Support\Edata\Fmt::asset('edata/js/invoice.js') }}"></script>
 </body>
 </html>

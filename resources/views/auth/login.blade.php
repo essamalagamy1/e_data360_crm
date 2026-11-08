@@ -18,8 +18,8 @@
     <title>{{ __('تسجيل الدخول') }} - {{ config('edata.app_name') }}</title>
     <link rel="icon" href="{{ $logoBase . '/' . ($settings['company_favicon'] ?? 'favicon.png') }}" type="image/png">
     <link rel="stylesheet" href="{{ asset('assets/fonts/tabler-icons.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('edata/css/edata.css') }}?v=2">
-    <link rel="stylesheet" href="{{ asset('edata/css/edata-me.css') }}?v=2">
+    <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/edata.css') }}">
+    <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/edata-me.css') }}">
     <style>
         .login { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(380px, .9fr); background: var(--surface); }
         .login__art { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 56px 56px 150px; }

@@ -42,6 +42,17 @@ class Fmt
         return ($settings['invoice_prefix'] ?? '#INVO') . sprintf('%05d', (int) $number);
     }
 
+    /**
+     * A file under public/ with its change time in the link, so every deployment
+     * makes browsers fetch the new version instead of an old cached copy.
+     */
+    public static function asset(string $path): string
+    {
+        $time = @filemtime(public_path($path));
+
+        return asset($path) . '?v=' . ($time ?: '1');
+    }
+
     public static function timezone(int $companyId): string
     {
         // An empty setting is common on a fresh company and must not reach Carbon.

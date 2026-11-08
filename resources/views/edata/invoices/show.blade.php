@@ -16,11 +16,11 @@
 @endphp
 
 @push('edata-css')
-    <link rel="stylesheet" href="{{ asset('edata/css/invoice.css') }}?v=2">
+    <link rel="stylesheet" href="{{ \App\Support\Edata\Fmt::asset('edata/css/invoice.css') }}">
 @endpush
 
 @push('edata-scripts')
-    <script src="{{ asset('edata/js/invoice.js') }}?v=2"></script>
+    <script src="{{ \App\Support\Edata\Fmt::asset('edata/js/invoice.js') }}"></script>
 @endpush
 
 @section('content')
