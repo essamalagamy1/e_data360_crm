@@ -778,5 +778,7 @@
     "ابحث باسم العميل": "Search by client name",
     "لا يوجد عملاء بهذا الاسم.": "No clients with this name.",
     "بدون تفاصيل إضافية": "No further details",
-    "تم تحصيل :pct%": ":pct% collected"
+    "تم تحصيل :pct%": ":pct% collected",
+    "لم يُضف فريق بعد": "No team yet",
+    "فريق المشروع": "Project team"
 }

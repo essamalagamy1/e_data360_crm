@@ -45,10 +45,6 @@
                 <option value="">{{ __('كل العملاء') }}</option>
                 @foreach ($customers as $c)<option value="{{ $c->id }}" @selected((int) request('customer') === (int) $c->id)>{{ $c->name }}</option>@endforeach
             </select>
-            <select class="ed-select" name="manager" aria-label="{{ __('مدير المشروع') }}">
-                <option value="">{{ __('كل المديرين') }}</option>
-                @foreach ($staff as $s)<option value="{{ $s->id }}" @selected((int) request('manager') === (int) $s->id)>{{ $s->name }}</option>@endforeach
-            </select>
             <select class="ed-select" name="member" aria-label="{{ __('عضو الفريق') }}">
                 <option value="">{{ __('كل أعضاء الفرق') }}</option>
                 @foreach ($staff as $s)<option value="{{ $s->id }}" @selected((int) request('member') === (int) $s->id)>{{ $s->name }}</option>@endforeach
@@ -82,9 +78,7 @@
                             </div>
                             <x-ed.progress :value="ProjectStats::progress($project, $s)" :late="$late" />
                             <div class="ed-pcard__foot">
-                                <span>
-                                    @if ($project->manager)<x-ed.avatar :name="$project->manager->name" size="sm" /> {{ $project->manager->name }}@else {{ __('بدون مدير') }} @endif
-                                </span>
+                                <x-ed.team :users="$project->users" :exclude="$company" />
                                 <span class="ed-due {{ $late ? 'is-late' : '' }}">
                                     <i class="ti ti-calendar"></i>
                                     @if ($late) {{ __('متأخر') }} {{ ProjectStats::daysLate($project) }} {{ __('يوم') }} @else {{ Labels::date($project->end_date, 'j M Y') }} @endif
@@ -103,7 +97,7 @@
         @elseif ($view === 'table')
             <div class="ed-table-wrap">
                 <table class="ed-table">
-                    <thead><tr><th>{{ __('المشروع') }}</th><th>{{ __('المدير') }}</th><th>{{ __('المهام') }}</th><th>{{ __('التسليم') }}</th><th>{{ __('الإنجاز') }}</th><th>{{ __('الحالة') }}</th></tr></thead>
+                    <thead><tr><th>{{ __('المشروع') }}</th><th>{{ __('الفريق') }}</th><th>{{ __('المهام') }}</th><th>{{ __('التسليم') }}</th><th>{{ __('الإنجاز') }}</th><th>{{ __('الحالة') }}</th></tr></thead>
                     <tbody>
                         @foreach ($projects as $project)
                             @php
@@ -115,7 +109,7 @@
                                     <a class="ed-table__title" href="{{ route('projects.show', $project->id) }}">{{ $project->project_name }}</a>
                                     <span class="ed-table__sub">{{ $project->customer->name ?? __('بدون عميل') }}</span>
                                 </td>
-                                <td>{{ $project->manager->name ?? '—' }}</td>
+                                <td><x-ed.team :users="$project->users" :exclude="$company" :max="4" /></td>
                                 <td class="ed-num">{{ $s['done'] ?? 0 }}/{{ $s['total'] ?? 0 }}</td>
                                 <td class="is-tight">
                                     <span class="ed-due {{ $late ? 'is-late' : '' }}">{{ Labels::date($project->end_date) }}</span>
@@ -148,7 +142,7 @@
                                         <span class="ed-card__sub">{{ $project->customer->name ?? __('بدون عميل') }}</span>
                                         <div style="margin-top:8px"><x-ed.progress :value="ProjectStats::progress($project, $s)" :late="$late" /></div>
                                         <div class="ed-card__meta">
-                                            @if ($project->manager)<x-ed.avatar :name="$project->manager->name" size="sm" />@else<span></span>@endif
+                                            <x-ed.team :users="$project->users" :exclude="$company" :max="3" />
                                             <span class="ed-due {{ $late ? 'is-late' : '' }}"><i class="ti ti-calendar"></i>{{ Labels::date($project->end_date, 'j M') }}</span>
                                         </div>
                                     </div>

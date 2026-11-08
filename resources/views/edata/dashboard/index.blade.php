@@ -276,8 +276,9 @@
                         <a href="{{ route('projects.show', $project->id) }}">
                             <div class="ed-list__main">
                                 <span class="ed-list__title">{{ $project->project_name }}</span>
-                                <span class="ed-list__sub">{{ $project->manager->name ?? __('بدون مدير') }}</span>
+                                <span class="ed-list__sub">{{ $project->customer->name ?? __('بدون عميل') }}</span>
                             </div>
+                            <x-ed.team :users="$project->users" :exclude="$company" :max="3" style="flex:none" />
                             <div style="width:110px;flex:none"><x-ed.progress :value="ProjectStats::progress($project, $latestStats[$project->id] ?? [])" :late="$late" /></div>
                             <span class="ed-due {{ $late ? 'is-late' : '' }}" style="flex:none">{{ Labels::date($project->end_date, 'j M') }}</span>
                         </a>

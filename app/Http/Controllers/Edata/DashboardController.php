@@ -88,7 +88,7 @@ class DashboardController extends BaseController
         ];
         $data['statusCounts'] = $statusCounts;
 
-        $latest = (clone $projects)->with(['manager:id,name', 'customer:id,name'])
+        $latest = (clone $projects)->with(['customer:id,name', 'users' => fn ($q) => $q->select('users.id', 'users.name', 'users.avatar')])
             ->whereIn('status', Labels::PROJECT_OPEN)
             ->orderByRaw('end_date IS NULL, end_date ASC')
             ->limit(6)

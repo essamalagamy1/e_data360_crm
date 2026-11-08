@@ -37,14 +37,14 @@ class ProjectController extends BaseController
             if (!$request->filled('status')) {
                 $query->whereIn('projects.status', Labels::PROJECT_OPEN);
             }
-            $projects = $query->with(['manager:id,name', 'customer:id,name'])
+            $projects = $query->with(['manager:id,name', 'customer:id,name', 'users' => fn ($q) => $q->select('users.id', 'users.name', 'users.avatar')])
                 ->orderByRaw('end_date IS NULL, end_date ASC')
                 ->limit($view === 'board' ? 120 : 50)
                 ->get();
             $paginator = null;
             $list = $projects;
         } else {
-            $paginator = $query->with(['manager:id,name', 'customer:id,name'])
+            $paginator = $query->with(['manager:id,name', 'customer:id,name', 'users' => fn ($q) => $q->select('users.id', 'users.name', 'users.avatar')])
                 ->orderByRaw("FIELD(projects.status,'in_progress','waiting_client','planning','new','on_hold','complete','canceled')")
                 ->orderByDesc('projects.id')
                 ->paginate($view === 'cards' ? 18 : $this->perPage())
