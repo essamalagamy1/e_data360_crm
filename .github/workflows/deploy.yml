@@ -111,8 +111,7 @@ jobs:
           db_pass="$(value DB_PASSWORD || true)"
           db_name="$(value DB_DATABASE || true)"
           # Backslashes and quotes inside a password must be escaped in a MySQL option file.
-          db_pass="${db_pass//\\/\\\\}"
-          db_pass="${db_pass//\"/\\\"}"
+          db_pass="$(printf '%s' "$db_pass" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
           options="$(mktemp)"
           chmod 600 "$options"
           {
