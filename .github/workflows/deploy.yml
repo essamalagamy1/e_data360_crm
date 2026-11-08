@@ -1,0 +1,171 @@
+# Puts every change that lands on main onto the live server.
+#
+# Order on each run: back up the live code and database on the server, copy the
+# new code over, apply database migrations, refresh the caches, then check that
+# the login page answers. If the backup fails, nothing on the server is touched.
+#
+# Nothing is deleted on the server. vendor/, .env and storage/ (uploads, logs,
+# sessions) are never touched, so composer packages and settings stay as they are.
+#
+# Needs these repository secrets (Settings > Secrets and variables > Actions):
+#   SSH_HOST     server address from hPanel > SSH Access
+#   SSH_PORT     SSH port (Hostinger uses 65002); optional
+#   SSH_USER     SSH username from hPanel
+#   SSH_KEY      the private key whose public half is added in hPanel
+#   DEPLOY_PATH  full path of the site folder, the one holding artisan and .env
+#   PHP_BIN      PHP 8.3 command on the server, e.g. /opt/alt/php83/usr/bin/php; optional
+
+name: Deploy to server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two deployments never run at the same time; a newer one waits for the older.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  SITE_URL: https://system.e-data360.com
+  SSH_HOST: ${{ secrets.SSH_HOST }}
+  SSH_PORT: ${{ secrets.SSH_PORT || '65002' }}
+  SSH_USER: ${{ secrets.SSH_USER }}
+  DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+  PHP_BIN: ${{ secrets.PHP_BIN || 'php' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check the server settings
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          missing=0
+          for name in SSH_HOST SSH_USER SSH_KEY DEPLOY_PATH; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository secret $name is not set."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - uses: actions/checkout@v4
+
+      - name: Prepare the SSH connection
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          fi
+          {
+            echo "Host server"
+            echo "  HostName $SSH_HOST"
+            echo "  Port $SSH_PORT"
+            echo "  User $SSH_USER"
+            echo "  IdentityFile ~/.ssh/deploy_key"
+            echo "  IdentitiesOnly yes"
+            echo "  ServerAliveInterval 30"
+          } > ~/.ssh/config
+          ssh server 'echo connected'
+
+      - name: Back up the live code and database
+        run: |
+          tag="$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          ssh server "bash -s -- $(printf '%q ' "$DEPLOY_PATH" "$tag")" <<'REMOTE'
+          set -euo pipefail
+          site="$1"
+          tag="$2"
+          backups="$HOME/deploy-backups"
+          mkdir -p "$backups"
+          chmod 700 "$backups"
+          cd "$site"
+          if [ ! -f artisan ] || [ ! -f .env ]; then
+            echo "artisan or .env not found in $site. Check DEPLOY_PATH."
+            exit 1
+          fi
+
+          # Exit code 1 from tar only means a file changed while it was read.
+          tar -czf "$backups/files-$tag.tar.gz" --exclude=./vendor --exclude=./storage --exclude=./node_modules . || [ "$?" -eq 1 ]
+
+          # The database is dumped with the credentials the site itself uses.
+          value() { grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- | sed -e 's/^["'\'']//' -e 's/["'\'']$//'; }
+          db_host="$(value DB_HOST || true)"
+          db_port="$(value DB_PORT || true)"
+          db_user="$(value DB_USERNAME || true)"
+          db_pass="$(value DB_PASSWORD || true)"
+          db_name="$(value DB_DATABASE || true)"
+          # Backslashes and quotes inside a password must be escaped in a MySQL option file.
+          db_pass="${db_pass//\\/\\\\}"
+          db_pass="${db_pass//\"/\\\"}"
+          options="$(mktemp)"
+          chmod 600 "$options"
+          {
+            echo "[client]"
+            echo "host=${db_host:-localhost}"
+            echo "port=${db_port:-3306}"
+            echo "user=$db_user"
+            echo "password=\"$db_pass\""
+          } > "$options"
+          mysqldump --defaults-extra-file="$options" --single-transaction --quick --no-tablespaces "$db_name" | gzip > "$backups/db-$tag.sql.gz"
+          rm -f "$options"
+
+          # Keep the latest five of each.
+          ls -1t "$backups"/files-*.tar.gz | tail -n +6 | xargs -r rm -f
+          ls -1t "$backups"/db-*.sql.gz | tail -n +6 | xargs -r rm -f
+          echo "Saved $backups/files-$tag.tar.gz and $backups/db-$tag.sql.gz"
+          REMOTE
+
+      - name: Copy the new code
+        run: |
+          rsync -rlz --checksum --no-perms --no-owner --no-group --omit-dir-times \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='/vendor/' \
+            --exclude='/node_modules/' \
+            --exclude='/storage/' \
+            --exclude='/bootstrap/cache/' \
+            --exclude='/public/storage' \
+            --exclude='/tests/' \
+            --exclude='/database/seeders/EdataDemoSeeder.php' \
+            --exclude='/composer.dev.*' \
+            --exclude='/phpunit.xml' \
+            ./ "server:$DEPLOY_PATH/"
+
+      - name: Apply database changes and refresh caches
+        run: |
+          ssh server "bash -s -- $(printf '%q ' "$DEPLOY_PATH" "$PHP_BIN")" <<'REMOTE'
+          set -euo pipefail
+          cd "$1"
+          php="$2"
+          "$php" artisan migrate --force
+          "$php" artisan view:clear
+          "$php" artisan route:clear
+          "$php" artisan config:cache
+          REMOTE
+
+      - name: Check the site answers
+        run: |
+          code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$SITE_URL/login")"
+          echo "Login page answered $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::The login page answered $code. Backups are in ~/deploy-backups on the server."
+            exit 1
+          fi
