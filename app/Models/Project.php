@@ -30,18 +30,34 @@ class Project extends Model
     ];
 
     public static $project_status=[
+        'new' => 'جديد',
+        'planning' => 'قيد التخطيط',
         'in_progress' => 'In Progress',
+        'waiting_client' => 'بانتظار العميل',
         'on_hold' => 'On Hold',
         'complete' => 'Complete',
         'canceled' => 'Canceled'
     ];
 
     public static $status_color = [
+        'new' => 'secondary',
+        'planning' => 'info',
+        'waiting_client' => 'warning',
         'on_hold' => 'warning',
         'in_progress' => 'info',
         'complete' => 'success',
         'canceled' => 'danger',
     ];
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
+    public function manager()
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
 
     public function milestones()
     {

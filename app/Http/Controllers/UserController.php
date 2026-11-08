@@ -561,10 +561,29 @@ class UserController extends Controller
 
     }
 
+    /**
+     * These account actions used to run for anyone who reached the URL. The caller
+     * now has to hold "edit user" and the target has to belong to the same company.
+     */
+    private function guardAccountAction(?User $target): void
+    {
+        $actor = \Auth::user();
+
+        abort_unless($actor && $target, 403);
+
+        if ($actor->type === 'super admin') {
+            return;
+        }
+
+        abort_unless($actor->can('edit user'), 403);
+        abort_unless((int) $target->created_by === (int) $actor->creatorId(), 403);
+    }
+
     public function userPassword($id)
     {
         $eId = \Crypt::decrypt($id);
         $user = User::find($eId);
+        $this->guardAccountAction($user);
 
         return view('user.reset', compact('user'));
 
@@ -572,6 +591,8 @@ class UserController extends Controller
 
     public function userPasswordReset(Request $request, $id)
     {
+        $this->guardAccountAction(User::find($id));
+
         $validator = \Validator::make(
             $request->all(), [
                 'password' => 'required|confirmed|same:password_confirmation',
@@ -672,6 +693,8 @@ class UserController extends Controller
 
     public function userUnable(Request $request)
     {
+        $this->guardAccountAction(User::find($request->id));
+
         User::where('id', $request->id)->update(['is_disable' => $request->is_disable]);
         $userData = User::where('created_by', $request->company_id)->where('type', '!=', 'client')->selectRaw('COUNT(*) as total_users, SUM(CASE WHEN is_disable = 0 THEN 1 ELSE 0 END) as disable_users, SUM(CASE WHEN is_disable = 1 THEN 1 ELSE 0 END) as active_users')->first();
 
@@ -689,6 +712,7 @@ class UserController extends Controller
         $eId = \Crypt::decrypt($id);
         $user = User::find($eId);
         $authUser = \Auth::user();
+        $this->guardAccountAction($user);
 
         if ($user->is_enable_login == 1) {
             $user->is_enable_login = 0;

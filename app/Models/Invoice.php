@@ -49,6 +49,11 @@ class Invoice extends Model
         return $this->hasOne('App\Models\Customer', 'id', 'customer_id');
     }
 
+    public function project()
+    {
+        return $this->belongsTo(Project::class, 'project_id');
+    }
+
 
 
 
@@ -85,8 +90,9 @@ class Invoice extends Model
                 $taxes += !empty($taxData[$tax]['rate']) ? $taxData[$tax]['rate'] : 0;
             }
 
+            // The line discount is a total for the line, as in Utility::taxRate().
             $discount = isset($product->discount) ? $product->discount : 0;
-            $totalTax += ($taxes / 100) * (($product->price - $discount) * $product->quantity);
+            $totalTax += ($taxes / 100) * (($product->price * $product->quantity) - $discount);
         }
 
         return $totalTax;

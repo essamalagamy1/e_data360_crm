@@ -1,0 +1,19 @@
+/* Screens that were not rebuilt (payroll, accounting reports and so on) sit inside
+   the new shell. This file only aligns their colours, font and spacing with it. */
+
+body.ed-legacy { background: var(--bg); }
+.ed-legacy .dash-container { margin: 0 !important; position: static !important; top: auto !important; min-height: 0 !important; width: auto !important; }
+.ed-legacy .dash-content { padding: 0 !important; min-height: 0 !important; }
+.ed-legacy .page-header { margin: 0 0 16px !important; padding: 0 !important; background: none !important; box-shadow: none !important; position: static !important; }
+.ed-legacy .page-header h4 { font-family: var(--font); font-weight: 800; font-size: 21px; color: var(--text); }
+.ed-legacy, .ed-legacy p, .ed-legacy td, .ed-legacy th, .ed-legacy label, .ed-legacy input, .ed-legacy select, .ed-legacy textarea, .ed-legacy button, .ed-legacy .btn, .ed-legacy h1, .ed-legacy h2, .ed-legacy h3, .ed-legacy h4, .ed-legacy h5, .ed-legacy h6, .ed-legacy span:not([class*="ti"]):not([class*="fa"]) { font-family: var(--font); }
+.ed-legacy .card { border: 1px solid var(--line) !important; border-radius: var(--r-lg) !important; box-shadow: none !important; }
+.ed-legacy .card-header { background: var(--surface) !important; border-bottom: 1px solid var(--line) !important; }
+.ed-legacy .btn-primary, .ed-legacy .btn-primary:hover, .ed-legacy .bg-primary, .ed-legacy .badge.bg-primary { background: var(--navy) !important; border-color: var(--navy) !important; color: #fff !important; }
+.ed-legacy .btn { border-radius: var(--r-md); box-shadow: none !important; }
+.ed-legacy .text-primary, .ed-legacy a.text-primary { color: var(--teal) !important; }
+.ed-legacy .table thead th { background: var(--surface-2) !important; color: var(--text-3) !important; font-weight: 600 !important; }
+.ed-legacy .form-control, .ed-legacy .form-select { border-radius: var(--r-md); border-color: var(--line-strong); }
+.ed-legacy .form-control:focus, .ed-legacy .form-select:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0, 194, 198, .18); }
+.ed-legacy .breadcrumb { margin: 0; padding: 0; background: none; font-size: 13px; }
+.ed-legacy .dash-footer { display: none; }
