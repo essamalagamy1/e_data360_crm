@@ -253,7 +253,8 @@ Route::get('/customer/coingate/{invoice}/{amount}', [CoingatePaymentController::
 
 Route::post('/paymentwall', [PaymentWallPaymentController::class, 'invoicepaymentwall'])->name('invoice.paymentwallpayment')->middleware(['XSS']);
 Route::post('/invoice-pay-with-paymentwall/{invoice}', [PaymentWallPaymentController::class, 'invoicePayWithPaymentwall'])->name('invoice.pay.with.paymentwall')->middleware(['XSS']);
-Route::get('/invoices/{flag}/{invoice}', [PaymentWallPaymentController::class, 'invoiceerror'])->name('error.invoice.show');
+// The flag is a word; without this rule the route swallows /invoices/{id}/edit and /invoices/{id}/print.
+Route::get('/invoices/{flag}/{invoice}', [PaymentWallPaymentController::class, 'invoiceerror'])->where('flag', '[A-Za-z]+')->name('error.invoice.show');
 
 Route::post('/customer-pay-with-toyyibpay', [ToyyibpayController::class, 'invoicepaywithtoyyibpay'])->name('customer.pay.with.toyyibpay');
 Route::get('/customer/toyyibpay/{invoice}/{amount}', [ToyyibpayController::class, 'getInvoicePaymentStatus'])->name('customer.toyyibpay');
@@ -352,15 +353,18 @@ Route::get('/', [DashboardController::class, 'landingpage'])->middleware(['XSS',
 
 
 // cache
+// These two were open to anyone on the internet. Now they need the account owner.
 Route::get('/config-cache', function () {
+    abort_unless(in_array(\Auth::user()->type, ['super admin', 'company'], true), 403);
     Artisan::call('cache:clear');
     Artisan::call('route:clear');
     Artisan::call('view:clear');
     Artisan::call('optimize:clear');
     return redirect()->back()->with('success', 'Cache Clear Successfully');
-})->name('config.cache');
+})->middleware(['auth'])->name('config.cache');
 
 Route::get('/storage-link', function () {
+    abort_unless(in_array(\Auth::user()->type, ['super admin', 'company'], true), 403);
     $target = storage_path('app/public');
     $link = public_path('storage');
 
@@ -369,7 +373,7 @@ Route::get('/storage-link', function () {
     }
 
     return back()->with('success', 'Storage linked manually.');
-});
+})->middleware(['auth']);
 
 
 //================================= Invoice Payment Gateways  ====================================//
@@ -1845,3 +1849,5 @@ Route::group(['middleware' => ['verified']], function () {
 
 Route::any('/cookie-consent', [SystemController::class, 'CookieConsent'])->name('cookie-consent');
 Route::get('payslip/payslipPdf/{id}/{month}', [PaySlipController::class, 'payslipPdf'])->name('payslip.payslipPdf')->middleware(['XSS']);
+
+require __DIR__ . '/edata.php';

@@ -15,3 +15,7 @@
 /node_modules
 /vendor
 /storage.tar
+.env.testing
+/storage/debugbar/*
+/composer.dev.json
+/composer.dev.lock

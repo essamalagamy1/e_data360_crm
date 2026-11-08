@@ -35,6 +35,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\EncryptCookies::class,
             \App\Http\Middleware\FilterRequest::class,
+            \App\Http\Middleware\EdataRetiredModules::class,
+            \App\Http\Middleware\EdataHeartbeat::class,
         ]);
 
         // Append middleware to the 'api' group

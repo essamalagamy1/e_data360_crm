@@ -27,5 +27,5 @@ SetHandler application/x-lsphp83
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_URI} !^/public/
-    RewriteRule ^(css|assets|landing|storage|installer|js)/(.*)$ public/$1/$2 [L,NC]
+    RewriteRule ^(css|assets|landing|storage|installer|js|edata)/(.*)$ public/$1/$2 [L,NC]
 </IfModule>

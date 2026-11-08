@@ -116,8 +116,14 @@ class AuthenticatedSessionController extends Controller
             $validation = [];
         }
         $this->validate($request, $validation);
-        User::defaultEmail();
-        if($user != null) {
+        // Both only fill in missing rows. Running them on every login cost thousands of
+        // queries per login, so the check now runs at most once a day.
+        \Illuminate\Support\Facades\Cache::remember('edata_default_email_checked', now()->addDay(), function () {
+            User::defaultEmail();
+
+            return true;
+        });
+        if($user != null && !\App\Models\UserEmailTemplate::where('user_id', $user->id)->exists()) {
             $user->userDefaultDataRegister($user->id);
         }
 
@@ -194,7 +200,14 @@ class AuthenticatedSessionController extends Controller
         {
 //            $ip = '49.36.83.154'; // This is static ip address
             $ip = $_SERVER['REMOTE_ADDR']; // your ip address here
-            $query = @unserialize(file_get_contents('http://ip-api.com/php/' . $ip));
+            // A slow lookup service must never hold up the login itself.
+            $lookup = @file_get_contents('http://ip-api.com/php/' . $ip, false, stream_context_create(['http' => ['timeout' => 2]]));
+            $query = $lookup ? @unserialize($lookup, ['allowed_classes' => false]) : [];
+            if (!is_array($query)) {
+                $query = [];
+            }
+            // The company's timezone stays in force whatever country the login came from.
+            unset($query['timezone']);
 
             $whichbrowser = new \WhichBrowser\Parser($_SERVER['HTTP_USER_AGENT']);
             if ($whichbrowser->device->type == 'bot') {

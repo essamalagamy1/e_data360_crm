@@ -11,6 +11,7 @@ class Notification extends Model
         'type',
         'data',
         'is_read',
+        'dedupe_key',
     ];
 
     public function toHtml()
