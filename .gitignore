@@ -19,3 +19,4 @@
 /storage/debugbar/*
 /composer.dev.json
 /composer.dev.lock
+.phpunit.result.cache
