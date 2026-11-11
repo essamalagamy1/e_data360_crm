@@ -38,9 +38,14 @@
             @if ($team)
                 <b class="ed-num">{{ count($team['working']) }}</b> {{ __('من') }} <b class="ed-num">{{ $team['total'] }}</b> {{ __('موظفين يعملون الآن') }}{{ __('،') }}
             @endif
+            @if ($financeOnly && $money)
+                {{ __('فواتير هذا الشهر') }}: <b class="ed-num">{{ Fmt::money($money['month']['billed'], $company) }}</b>{{ __('،') }}
+                <b class="ed-num">{{ Fmt::money($money['summary']['due'], $company) }}</b> {{ __('مستحقة التحصيل') }}.
+            @else
             <b class="ed-num">{{ $projectCounts['active'] }}</b> {{ __('مشروع قيد التنفيذ') }}{{ __('،') }}
             <b class="ed-num {{ $taskCounts['overdue'] ? 'tone-text-bad' : '' }}">{{ $taskCounts['overdue'] }}</b> {{ __('مهمة متأخرة') }}@if ($money){{ __('،') }}
                 <b class="ed-num">{{ Fmt::money($money['summary']['due'], $company) }}</b> {{ __('مستحقة التحصيل') }}@endif.
+            @endif
         </p>
     </div>
     <form class="ed-filters" method="GET" style="padding:0;border:0;flex:1 1 480px;justify-content:flex-end" data-autosubmit aria-label="{{ __('فلترة لوحة التحكم') }}">
@@ -83,6 +88,7 @@
             </section>
         @endif
 
+        @unless ($financeOnly)
         <section class="ed-group" style="grid-column: span {{ $team ? 6 : 12 }}">
             <div class="ed-group__head"><h2><i class="ti ti-briefcase"></i>{{ __('المشاريع') }}</h2><a class="ed-link" style="font-size:12.5px" href="{{ route('projects.index') }}">{{ __('كل المشاريع') }}</a></div>
             <div class="ed-group__nums">
@@ -101,15 +107,25 @@
                 <x-ed.figure :label="__('أُنجزت في الفترة')" :count="$taskCounts['done_period']" tone="good" :href="route('edata.tasks.index', ['state' => 'done'])" />
             </div>
         </section>
+        @endunless
 
         @if ($money)
-            <section class="ed-group" style="grid-column: span 8">
+            <section class="ed-group" style="grid-column: span {{ $financeOnly ? 12 : 8 }}">
                 <div class="ed-group__head"><h2><i class="ti ti-file-invoice"></i>{{ __('الفواتير والتحصيل') }}</h2><a class="ed-link" style="font-size:12.5px" href="{{ route('edata.invoices.index') }}">{{ __('كل الفواتير') }}</a></div>
                 <div class="ed-group__nums">
                     <x-ed.figure :label="__('قيمة الفواتير')" :money="$money['summary']['billed']" :company="$company" :hint="$money['summary']['count'] . ' ' . __('فاتورة')" />
                     <x-ed.figure :label="__('تم تحصيله')" :money="$money['summary']['collected']" :company="$company" tone="good" :hint="($money['summary']['states']['paid'] ?? 0) . ' ' . __('مدفوعة بالكامل')" />
                     <x-ed.figure :label="__('مستحق')" :money="$money['summary']['due']" :company="$company" :tone="$money['summary']['due'] > 0 ? 'bad' : null" :hint="(($money['summary']['states']['sent'] ?? 0) + ($money['summary']['states']['partial'] ?? 0) + ($money['summary']['states']['overdue'] ?? 0)) . ' ' . __('غير مدفوعة')" :href="route('edata.invoices.index', ['state' => 'overdue'])" />
                     <x-ed.figure :label="__('إيراد هذا الشهر')" :money="$money['revenue_month']" :company="$company" :hint="__('هذا العام') . ': ' . Fmt::money($money['revenue_year'], $company)" />
+                </div>
+            </section>
+            <section class="ed-group" style="grid-column: span 12">
+                <div class="ed-group__head"><h2><i class="ti ti-calendar-stats"></i>{{ __('فواتير الشهر الحالي') }}</h2><span class="ed-muted" style="font-size:12.5px">{{ Labels::date($now->copy()->startOfMonth()) }} - {{ Labels::date($now) }}</span></div>
+                <div class="ed-group__nums">
+                    <x-ed.figure :label="__('إجمالي فواتير الشهر')" :money="$money['month']['billed']" :company="$company" :hint="$money['month']['count'] . ' ' . __('فاتورة')" :href="route('edata.invoices.index', ['from' => $now->copy()->startOfMonth()->toDateString(), 'to' => $now->copy()->endOfMonth()->toDateString()])" />
+                    <x-ed.figure :label="__('محصّل منها')" :money="$money['month']['collected']" :company="$company" tone="good" />
+                    <x-ed.figure :label="__('متبقي منها')" :money="$money['month']['due']" :company="$company" :tone="$money['month']['due'] > 0 ? 'bad' : null" />
+                    <x-ed.figure :label="__('إيراد هذا الشهر')" :money="$money['revenue_month']" :company="$company" :hint="__('كل ما دخل هذا الشهر')" />
                 </div>
             </section>
         @endif
@@ -125,7 +141,7 @@
         @endif
     </div>
 
-    @if (count($alerts))
+    @if (!$financeOnly && count($alerts))
         <section class="ed-panel" aria-label="{{ __('أهم التنبيهات') }}">
             <div class="ed-panel__head"><h2>{{ __('أهم التنبيهات') }}</h2></div>
             <div class="ed-alerts">
@@ -145,6 +161,7 @@
         $pct = fn ($part, $whole) => $whole > 0 ? (int) round($part / $whole * 100) : 0;
     @endphp
     <div class="ed-grid ed-grid--2">
+        @unless ($financeOnly)
         <section class="ed-panel">
             <div class="ed-panel__head"><div><h2>{{ __('المهام: الجديدة والمنجزة') }}</h2><p>{{ Labels::date($from) }} - {{ Labels::date($to) }}</p></div></div>
             <div class="ed-chartsum">
@@ -177,6 +194,7 @@
                 @endif
             </div>
         </section>
+        @endunless
 
         @if ($money)
             <section class="ed-panel">
@@ -194,6 +212,7 @@
             </section>
         @endif
 
+        @unless ($financeOnly)
         <section class="ed-panel">
             <div class="ed-panel__head"><div><h2>{{ __('أداء الموظفين في المهام') }}</h2><p>{{ __('المنجز في الفترة والمفتوح حالياً') }}</p></div></div>
             <div class="ed-panel__body" style="padding-top:6px">
@@ -220,6 +239,7 @@
                 @endif
             </div>
         </section>
+        @endunless
 
         @if ($team)
             <section class="ed-panel">
@@ -265,6 +285,7 @@
     </div>
 
     <div class="ed-grid ed-grid--2">
+        @unless ($financeOnly)
         <section class="ed-panel">
             <div class="ed-panel__head"><h2>{{ __('مشاريع تقترب مواعيدها') }}</h2><a class="ed-link" style="font-size:12.5px" href="{{ route('projects.index') }}">{{ __('كل المشاريع') }}</a></div>
             @if ($latestProjects->isEmpty())
@@ -305,6 +326,7 @@
                 </div>
             @endif
         </section>
+        @endunless
 
         @if ($money)
             <section class="ed-panel">

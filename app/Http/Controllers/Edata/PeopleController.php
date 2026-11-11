@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Utility;
 use App\Support\Edata\Access;
 use App\Support\Edata\AttendanceService;
+use App\Support\Edata\Audit;
 use App\Support\Edata\Labels;
 use App\Support\Edata\TaskRules;
 use Carbon\Carbon;
@@ -51,6 +52,13 @@ class PeopleController extends BaseController
         if ($request->filled('access')) {
             $query->where('is_enable_login', $request->query('access') === 'on' ? 1 : 0);
         }
+        // People whose service ended stay in the records but leave the list unless asked for.
+        $endedIds = Employee::where('created_by', $this->companyId())->where('employment_status', 'ended')->select('user_id');
+        if ($request->query('employment') === 'ended') {
+            $query->whereIn('id', $endedIds);
+        } else {
+            $query->whereNotIn('id', $endedIds);
+        }
 
         $people = $query->orderBy('name')->paginate($this->perPage())->withQueryString();
 
@@ -62,7 +70,9 @@ class PeopleController extends BaseController
 
         $done = TaskRules::doneStageIds($company);
         $openTasks = [];
+        $history = [];
         foreach ($people as $person) {
+            $history[$person->id] = $this->hasHistory($person);
             $openTasks[$person->id] = Access::tasks($me)
                 ->whereRaw('FIND_IN_SET(?, project_tasks.assign_to)', [$person->id])
                 ->whereNull('cancelled_at')->where('is_complete', 0)->whereNotIn('stage_id', $done)
@@ -73,6 +83,9 @@ class PeopleController extends BaseController
             'people' => $people,
             'todayRows' => $todayRows,
             'openTasks' => $openTasks,
+            'history' => $history,
+            'canDelete' => $me->can('delete user'),
+            'showingEnded' => $request->query('employment') === 'ended',
             'roles' => $this->rolesQuery()->pluck('name'),
             'departments' => Department::where('created_by', $company)->orderBy('name')->get(['id', 'name']),
             'departmentNames' => Department::where('created_by', $company)->pluck('name', 'id'),
@@ -265,6 +278,74 @@ class PeopleController extends BaseController
         return $this->done($person->is_enable_login ? 'تم تفعيل دخول ' . $person->name . '.' : 'تم إيقاف دخول ' . $person->name . '. سجله كله باقٍ كما هو.');
     }
 
+    /**
+     * Whether removing this person would orphan real records: attendance, leave,
+     * projects, tasks or requests. Such a person gets an end of service instead.
+     */
+    private function hasHistory(User $person): bool
+    {
+        $employee = $person->relationLoaded('employee') ? $person->employee : Employee::where('user_id', $person->id)->first();
+        if ($employee && (AttendanceEmployee::where('employee_id', $employee->id)->exists()
+            || DB::table('leaves')->where('employee_id', $employee->id)->exists()
+            || (\Illuminate\Support\Facades\Schema::hasTable('edata_requests') && DB::table('edata_requests')->where('employee_id', $employee->id)->exists()))) {
+            return true;
+        }
+
+        return ProjectUser::where('user_id', $person->id)->exists()
+            || DB::table('project_tasks')->whereRaw('FIND_IN_SET(?, assign_to)', [$person->id])->exists();
+    }
+
+    /** Deletes a person with no history at all, for example an account added by mistake. */
+    public function destroy(int $user)
+    {
+        $me = $this->me();
+        Access::need($me, 'delete user');
+        $person = $this->reachable($user);
+        abort_if(Access::isOwner($person) || $person->id === $me->id, 403);
+
+        if ($this->hasHistory($person)) {
+            return $this->failed('لهذا الموظف سجل حضور أو إجازات أو مشاريع أو مهام، لذلك لا يُحذف حتى لا يضيع السجل. استخدم «إنهاء الخدمة» بدلاً من ذلك.');
+        }
+
+        $name = $person->name;
+        DB::transaction(function () use ($person) {
+            Employee::where('user_id', $person->id)->delete();
+            $person->delete();
+        });
+        Audit::record('deleted', 'employee', $user, $name, ['الاسم' => $name, 'البريد' => $person->email], null, 'حذف موظف بلا سجل');
+
+        return $this->done('تم حذف ' . $name . '.', route('edata.people.index'));
+    }
+
+    /**
+     * Ends (or restores) a person's service. Their attendance, tasks and invoices stay,
+     * their login stops, and they leave the team lists and attendance boards.
+     */
+    public function endService(int $user)
+    {
+        $me = $this->me();
+        Access::need($me, 'edit user');
+        $person = $this->reachable($user);
+        abort_if(Access::isOwner($person) || $person->id === $me->id, 403);
+
+        $employee = Employee::where('user_id', $person->id)->first();
+        abort_unless($employee, 404);
+
+        $ending = $employee->employment_status !== 'ended';
+        $old = $employee->employment_status;
+        $employee->employment_status = $ending ? 'ended' : 'active';
+        $employee->save();
+        if ($ending) {
+            $person->is_enable_login = 0;
+            $person->save();
+        }
+        Audit::record('status_changed', 'employee', $employee->id, $person->name, ['الحالة الوظيفية' => Labels::employment($old)[0]], ['الحالة الوظيفية' => Labels::employment($employee->employment_status)[0]]);
+
+        return $this->done($ending
+            ? 'انتهت خدمة ' . $person->name . ' وتوقف دخوله. سجله كله باقٍ، وتجده في «انتهت خدمتهم».'
+            : 'عاد ' . $person->name . ' إلى الخدمة. فعّل دخوله من صفحته عند الحاجة.');
+    }
+
     /** Old delete route: refuses when the person has history, which would otherwise be orphaned. */
     public function destroyLegacy(int $user)
     {
@@ -272,10 +353,7 @@ class PeopleController extends BaseController
         $person = $this->reachable($user);
         abort_if(Access::isOwner($person), 403);
 
-        $employee = Employee::where('user_id', $person->id)->first();
-        $hasHistory = ($employee && AttendanceEmployee::where('employee_id', $employee->id)->exists())
-            || ProjectUser::where('user_id', $person->id)->exists()
-            || Access::tasks($this->me())->whereRaw('FIND_IN_SET(?, project_tasks.assign_to)', [$person->id])->exists();
+        $hasHistory = $this->hasHistory($person);
 
         if ($hasHistory) {
             return $this->failed('لهذا الموظف سجل حضور أو مشاريع أو مهام. أوقف دخوله بدلاً من حذفه حتى لا يضيع السجل.');

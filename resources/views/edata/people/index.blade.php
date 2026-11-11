@@ -30,7 +30,11 @@
             <option value="on" @selected(request('access') === 'on')>{{ __('الدخول مفعّل') }}</option>
             <option value="off" @selected(request('access') === 'off')>{{ __('الدخول متوقف') }}</option>
         </select>
-        @if (request()->hasAny(['q', 'role', 'department', 'access']))
+        <select class="ed-select" name="employment" aria-label="{{ __('الحالة الوظيفية') }}">
+            <option value="">{{ __('على رأس العمل') }}</option>
+            <option value="ended" @selected($showingEnded)>{{ __('انتهت خدمتهم') }}</option>
+        </select>
+        @if (request()->hasAny(['q', 'role', 'department', 'access', 'employment']))
             <a class="ed-btn ed-btn--ghost ed-btn--sm" href="{{ route('edata.people.index') }}">{{ __('مسح الفلاتر') }}</a>
         @endif
     </form>
@@ -87,6 +91,26 @@
                                         <a class="ed-btn ed-btn--ghost ed-btn--sm" href="{{ route('edata.people.edit', $person->id) }}" aria-label="{{ __('تعديل') }}"><i class="ti ti-pencil"></i></a>
                                     @endif
                                     <a class="ed-btn ed-btn--ghost ed-btn--sm" href="{{ route('edata.people.show', $person->id) }}" aria-label="{{ __('عرض') }}"><i class="ti ti-eye"></i></a>
+                                    @if ((int) $person->id !== (int) auth()->id())
+                                        @if ($canDelete && empty($history[$person->id]))
+                                            <form method="POST" action="{{ route('edata.people.destroy', $person->id) }}"
+                                                  data-confirm="{{ __('حذف :name نهائياً؟', ['name' => $person->name]) }}"
+                                                  data-confirm-text="{{ __('ليس له أي سجل حضور أو مهام أو مشاريع، لذلك يُحذف حسابه بالكامل. لا يمكن التراجع.') }}"
+                                                  data-confirm-yes="{{ __('حذف') }}">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="ed-btn ed-btn--ghost ed-btn--sm tone-text-bad" title="{{ __('حذف الموظف') }}" aria-label="{{ __('حذف الموظف') }}: {{ $person->name }}"><i class="ti ti-trash"></i></button>
+                                            </form>
+                                        @elseif ($canEdit && $person->employee)
+                                            @php $ended = $person->employee->employment_status === 'ended'; @endphp
+                                            <form method="POST" action="{{ route('edata.people.end', $person->id) }}"
+                                                  data-confirm="{{ $ended ? __('إعادة :name إلى الخدمة؟', ['name' => $person->name]) : __('إنهاء خدمة :name؟', ['name' => $person->name]) }}"
+                                                  data-confirm-text="{{ $ended ? __('يعود للقوائم، ويبقى دخوله متوقفاً حتى تفعّله.') : __('له سجل في النظام، لذلك لا يُحذف. يتوقف دخوله ويختفي من القوائم، ويبقى سجله كاملاً.') }}"
+                                                  data-confirm-yes="{{ $ended ? __('إعادة للخدمة') : __('إنهاء الخدمة') }}" @if ($ended) data-confirm-safe @endif>
+                                                @csrf
+                                                <button type="submit" class="ed-btn ed-btn--ghost ed-btn--sm {{ $ended ? '' : 'tone-text-bad' }}" title="{{ $ended ? __('إعادة للخدمة') : __('إنهاء الخدمة') }}" aria-label="{{ ($ended ? __('إعادة للخدمة') : __('إنهاء الخدمة')) . ': ' . $person->name }}"><i class="ti {{ $ended ? 'ti-user-check' : 'ti-user-off' }}"></i></button>
+                                            </form>
+                                        @endif
+                                    @endif
                                 </span>
                             </td>
                         </tr>

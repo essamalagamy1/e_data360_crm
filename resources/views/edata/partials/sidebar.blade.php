@@ -6,7 +6,7 @@
     $edCompany = (int) $edMe->creatorId();
     $edLogo = $edSettings['company_logo_dark'] ?? 'logo-dark.png';
     $edHasEmployee = \App\Models\Employee::where('user_id', $edMe->id)->exists();
-    $edOverview = Access::isOwner($edMe) || Access::scope($edMe, 'projects') === Access::ALL;
+    $edOverview = Access::isOwner($edMe) || Access::scope($edMe, 'projects') === Access::ALL || $edMe->can('manage invoice');
 
     $edOverdueTasks = Access::tasks($edMe)
         ->whereNull('cancelled_at')->where('is_complete', 0)
@@ -23,33 +23,9 @@
         return '';
     };
 
-    $edMore = [
-        ['لوحة المحاسبة', 'edata.accounting', 'show account dashboard', 'ti-report-money'],
-        ['الحسابات البنكية', 'bank-account.index', 'manage bank account', 'ti-building-bank'],
-        ['الإيرادات الأخرى', 'revenue.index', 'manage revenue', 'ti-cash'],
-        ['الموردون', 'vender.index', 'manage vender', 'ti-truck'],
-        ['الفواتير الواردة', 'bill.index', 'manage bill', 'ti-receipt'],
-        ['العروض', 'proposal.index', 'manage proposal', 'ti-file-text'],
-        ['دليل الحسابات', 'chart-of-account.index', 'manage chart of account', 'ti-list'],
-        ['الضرائب', 'taxes.index', 'manage constant tax', 'ti-percentage'],
-        ['ملخص الفواتير', 'report.invoice.summary', 'invoice report', 'ti-chart-bar'],
-        ['ملخص الدخل', 'report.income.summary', 'income report', 'ti-chart-line'],
-        ['بيانات الموظفين الكاملة', 'employee.index', 'manage employee', 'ti-id'],
-        ['الرواتب', 'setsalary.index', 'manage set salary', 'ti-wallet'],
-        ['كشوف الرواتب', 'payslip.index', 'manage pay slip', 'ti-file-text'],
-        ['الإجازات', 'leave.index', 'manage leave', 'ti-calendar-minus'],
-        ['العطلات الرسمية', 'holiday.index', 'manage holiday', 'ti-calendar-event'],
-        ['الأقسام', 'department.index', 'manage department', 'ti-sitemap'],
-        ['المسميات الوظيفية', 'designation.index', 'manage designation', 'ti-tag'],
-        ['تقرير الحضور الشهري', 'report.monthly.attendance', 'manage report', 'ti-calendar-stats'],
-    ];
-    $edMore = array_values(array_filter($edMore, fn ($item) => \Route::has($item[1]) && $edMe->can($item[2])));
-    $edMoreActive = false;
-    foreach ($edMore as $item) {
-        if (request()->routeIs($item[1])) {
-            $edMoreActive = true;
-        }
-    }
+    $edCanApprove = \App\Support\Edata\EmployeeServices::canApprove($edMe);
+    $edPending = $edCanApprove && \Illuminate\Support\Facades\Schema::hasTable('edata_requests') ? \App\Support\Edata\EmployeeServices::pendingCount($edCompany) : 0;
+    $edCanAnnounce = Access::isOwner($edMe) || $edMe->can('create announcement') || $edMe->can('manage announcement');
 @endphp
 
 <aside class="ed-side" id="edSide" aria-label="{{ __('القائمة الرئيسية') }}">
@@ -67,14 +43,24 @@
             <a class="ed-nav {{ $edActive('edata.me.attendance') }}" href="{{ route('edata.me.attendance') }}"><i class="ti ti-clock"></i><span>{{ __('حضوري') }}</span></a>
         @endif
 
-        @if ($edMe->can('manage user') || $edMe->can('manage employee') || $edMe->can('manage attendance'))
+        @if ($edMe->can('manage user') || $edMe->can('manage employee') || $edMe->can('manage attendance') || $edCanApprove || $edCanAnnounce)
             <div class="ed-side__group">{{ __('الفريق') }}</div>
             @if ($edMe->can('manage user') || $edMe->can('manage employee'))
                 <a class="ed-nav {{ $edActive('edata.people.*') }}" href="{{ route('edata.people.index') }}"><i class="ti ti-users"></i><span>{{ __('الموظفون') }}</span></a>
             @endif
             @can('manage attendance')
                 <a class="ed-nav {{ $edActive('edata.attendance.*') }}" href="{{ route('edata.attendance.index') }}"><i class="ti ti-calendar-time"></i><span>{{ __('الحضور والانصراف') }}</span></a>
+                <a class="ed-nav {{ $edActive('edata.daily.*') }}" href="{{ route('edata.daily.index') }}"><i class="ti ti-notes"></i><span>{{ __('التقارير اليومية') }}</span></a>
             @endcan
+            @if ($edCanApprove)
+                <a class="ed-nav {{ $edActive('edata.requests.*') }}" href="{{ route('edata.requests.index') }}">
+                    <i class="ti ti-inbox"></i><span>{{ __('الطلبات') }}</span>
+                    @if ($edPending > 0)<b class="ed-nav__count" title="{{ __('طلبات تنتظر الرد') }}">{{ $edPending }}</b>@endif
+                </a>
+            @endif
+            @if ($edCanAnnounce)
+                <a class="ed-nav {{ $edActive('edata.announcements.*') }}" href="{{ route('edata.announcements.index') }}"><i class="ti ti-speakerphone"></i><span>{{ __('الإعلانات') }}</span></a>
+            @endif
         @endif
 
         <div class="ed-side__group">{{ __('الأعمال') }}</div>
@@ -110,18 +96,6 @@
             @endcan
         @endif
 
-        @if (count($edMore))
-            <button type="button" class="ed-nav ed-side__more" data-side-more aria-expanded="{{ $edMoreActive ? 'true' : 'false' }}" aria-controls="edSideMorePanel">
-                <i class="ti ti-dots-circle-horizontal"></i><span>{{ __('المزيد') }}</span><i class="ti ti-chevron-down"></i>
-            </button>
-            <div class="ed-side__sub {{ $edMoreActive ? 'is-open' : '' }}" id="edSideMorePanel">
-                <div>
-                    @foreach ($edMore as $item)
-                        <a class="ed-nav {{ $edActive($item[1]) }}" href="{{ route($item[1]) }}"><span>{{ __($item[0]) }}</span></a>
-                    @endforeach
-                </div>
-            </div>
-        @endif
     </nav>
 
     <div class="ed-side__foot">

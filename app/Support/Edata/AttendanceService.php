@@ -355,6 +355,13 @@ class AttendanceService
             ->get()
             ->groupBy('employee_id');
 
+        // Approved permissions (late arrival or early leave) excuse the late flag on that day.
+        $permissions = \Illuminate\Support\Facades\Schema::hasTable('edata_requests')
+            ? \Illuminate\Support\Facades\DB::table('edata_requests')->whereIn('employee_id', $ids)->where('kind', 'permission')
+                ->where('status', 'approved')->whereBetween('date', [$from, $to])->get()
+                ->mapWithKeys(fn ($p) => [$p->employee_id . '|' . Carbon::parse($p->date)->toDateString() => true])
+            : collect();
+
         $holidays = Holiday::where('created_by', $this->companyId)
             ->where('date', '<=', $to)
             ->where(function ($q) use ($from) {
@@ -374,7 +381,8 @@ class AttendanceService
                     $rows[$employee->id . '|' . $date] ?? collect(),
                     $leaves[$employee->id] ?? collect(),
                     $holidays,
-                    $rules
+                    $rules,
+                    isset($permissions[$employee->id . '|' . $date])
                 );
                 $cursor->addDay();
             }
@@ -383,7 +391,7 @@ class AttendanceService
         return collect($days)->sortByDesc('date')->values();
     }
 
-    private function buildDay(Employee $employee, string $date, Collection $sessions, Collection $leaves, Collection $holidays, array $rules): array
+    private function buildDay(Employee $employee, string $date, Collection $sessions, Collection $leaves, Collection $holidays, array $rules, bool $permitted = false): array
     {
         $day = Carbon::parse($date);
         $localNow = $this->nowLocal();
@@ -432,6 +440,10 @@ class AttendanceService
             $overtime = max(0, $seconds - $rules['required_seconds']);
 
             $flags = [];
+            if ($permitted) {
+                $lateMinutes = 0;
+                $flags[] = 'permission';
+            }
             if ($lateMinutes > 0) {
                 $flags[] = 'late';
             }

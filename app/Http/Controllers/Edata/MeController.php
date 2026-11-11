@@ -6,19 +6,21 @@ use App\Models\Employee;
 use App\Models\Project;
 use App\Support\Edata\Access;
 use App\Support\Edata\AttendanceService;
+use App\Support\Edata\EmployeeServices;
 use App\Support\Edata\Labels;
 use App\Support\Edata\Moments;
 use App\Support\Edata\TaskRules;
 use Carbon\Carbon;
 use DomainException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The employee's own space: clock, tasks, projects and history.
  */
 class MeController extends BaseController
 {
-    public function index()
+    public function index(Request $request)
     {
         $me = $this->me();
         $company = $this->companyId();
@@ -49,7 +51,36 @@ class MeController extends BaseController
             ->limit(6)
             ->get();
 
+        $zone = $service->rules()['zone'];
+        $now = Carbon::now($zone);
+        $m = (string) $request->query('m');
+        $summaryMonth = preg_match('/^\d{4}-\d{2}$/', $m) ? Carbon::parse($m . '-01', $zone) : $now->copy()->startOfMonth();
+        if ($summaryMonth->greaterThan($now)) {
+            $summaryMonth = $now->copy()->startOfMonth();
+        }
+
+        $dayLog = $employee ? EmployeeServices::dayLog($employee, $today) : null;
+        $planIds = EmployeeServices::planIds($dayLog);
+        $planChoices = (clone $open)->with('project:id,project_name')->orderByRaw('end_date IS NULL, end_date ASC')->limit(12)->get(['project_tasks.id', 'project_tasks.name', 'project_tasks.project_id', 'project_tasks.end_date']);
+        $planTasks = $planIds ? Access::tasks($me)->whereIn('project_tasks.id', $planIds)->get(['project_tasks.id', 'project_tasks.name', 'project_tasks.is_complete', 'project_tasks.stage_id']) : collect();
+
+        $running = EmployeeServices::runningTimer($me->id);
+        $runningTask = $running ? DB::table('project_tasks')->where('id', $running->task_id)->value('name') : null;
+
         return view('edata.me.index', [
+            'leaveBalances' => $employee ? EmployeeServices::leaveBalances($employee, $company, $now) : collect(),
+            'myRequests' => $employee ? EmployeeServices::myRequests($employee) : collect(),
+            'dayLog' => $dayLog,
+            'planIds' => $planIds,
+            'planTasks' => $planTasks,
+            'planChoices' => $planChoices,
+            'announcements' => EmployeeServices::announcements($company, $me->id),
+            'running' => $running,
+            'runningTask' => $runningTask,
+            'taskSeconds' => EmployeeServices::taskSeconds($tasks->pluck('id')->all()),
+            'summary' => EmployeeServices::monthSummary($me, $employee, $company, $summaryMonth),
+            'isThisMonth' => $summaryMonth->isSameMonth($now),
+            'todayDate' => $today,
             'employee' => $employee,
             'state' => $state,
             'monthTotals' => $monthTotals,
@@ -145,10 +176,25 @@ class MeController extends BaseController
         $company = $this->companyId();
         $service = AttendanceService::for($company);
 
+        $data = $request->validate(['report' => 'nullable|string|max:2000'], [], ['report' => 'تقرير اليوم']);
+
         try {
             $service->clockOut($employee, $request->ip());
         } catch (DomainException $e) {
             return back()->with('error', __($e->getMessage()));
+        }
+
+        // The end-of-day report is optional; it lands on the managers' daily reports page.
+        $report = trim((string) ($data['report'] ?? ''));
+        if ($report !== '') {
+            DB::table('edata_daily_logs')->updateOrInsert(
+                ['employee_id' => $employee->id, 'date' => Carbon::now($service->rules()['zone'])->toDateString()],
+                ['company_id' => $company, 'user_id' => $this->me()->id, 'report' => $report, 'updated_at' => now(), 'created_at' => now()]
+            );
+        }
+        // Leaving for the day also stops a task timer that is still running.
+        if ($running = EmployeeServices::runningTimer($this->me()->id)) {
+            EmployeeServices::stopTimer($running);
         }
 
         [$base] = $this->taskQueries();

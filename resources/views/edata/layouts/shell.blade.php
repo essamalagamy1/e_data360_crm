@@ -139,9 +139,9 @@
                 <h3 id="edConfirmTitle"></h3>
                 <p id="edConfirmText"></p>
                 <div class="ed-field" id="edConfirmReasonWrap" hidden style="margin-top:12px">
-                    <label class="ed-label" for="edConfirmReason">{{ __('السبب') }}<em>*</em></label>
+                    <label class="ed-label" for="edConfirmReason"><span id="edConfirmReasonLabel" data-default="{{ __('السبب') }}">{{ __('السبب') }}</span><em id="edConfirmReasonStar">*</em></label>
                     <textarea class="ed-textarea" id="edConfirmReason" minlength="3" maxlength="400" rows="2"></textarea>
-                    <span class="ed-hint">{{ __('يُحفظ السبب في سجل الأنشطة.') }}</span>
+                    <span class="ed-hint" id="edConfirmReasonHint" data-default="{{ __('يُحفظ السبب في سجل الأنشطة.') }}">{{ __('يُحفظ السبب في سجل الأنشطة.') }}</span>
                 </div>
             </div>
             <div class="ed-dialog__foot">

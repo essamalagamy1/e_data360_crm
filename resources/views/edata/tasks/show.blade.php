@@ -6,6 +6,12 @@
     use App\Support\Edata\Labels;
     use App\Support\Edata\TaskRules;
     $isLate = TaskRules::isOverdue($task, $company);
+    $edMeId = (int) auth()->id();
+    $edTimerOk = \Illuminate\Support\Facades\Schema::hasTable('edata_task_timers');
+    $edCanTime = $edTimerOk && (auth()->user()->can('edit project task') || in_array($edMeId, TaskRules::assigneeIds($task), true));
+    $edRunning = $edTimerOk ? \App\Support\Edata\EmployeeServices::runningTimer($edMeId) : null;
+    $edRunningHere = $edRunning && (int) $edRunning->task_id === (int) $task->id;
+    $edTaskSeconds = $edTimerOk ? (\App\Support\Edata\EmployeeServices::taskSeconds([$task->id])[$task->id] ?? 0) : 0;
 @endphp
 
 @section('content')
@@ -104,6 +110,28 @@
                 @endif
             </div>
         </section>
+
+        @if ($edCanTime || $edTaskSeconds > 0)
+            <section class="ed-panel">
+                <div class="ed-panel__head"><h2>{{ __('مؤقت المهمة') }}</h2><span class="ed-num ed-hint" title="{{ __('مجموع الوقت المسجّل على المهمة من كل الفريق') }}">{{ Labels::hours($edTaskSeconds) }}</span></div>
+                <div class="ed-panel__body">
+                    @if ($edCanTime)
+                        @if ($edRunningHere)
+                            <div class="ed-timerbar" style="margin:0 0 10px">
+                                <span class="ed-timerbar__dot" aria-hidden="true"></span>
+                                <div class="ed-timerbar__main"><span>{{ __('يعمل الآن') }}</span></div>
+                                <b class="ed-num ed-timerbar__time" data-timer-since="{{ \Carbon\Carbon::parse($edRunning->started_at, 'UTC')->getTimestamp() }}">00:00:00</b>
+                            </div>
+                        @endif
+                        <form method="POST" action="{{ $edRunningHere ? route('edata.timer.stop') : route('edata.timer.start', $task->id) }}">
+                            @csrf
+                            <button type="submit" class="ed-btn {{ $edRunningHere ? '' : 'ed-btn--primary' }}" style="width:100%"><i class="ti {{ $edRunningHere ? 'ti-player-stop' : 'ti-player-play' }}"></i>{{ $edRunningHere ? __('إيقاف المؤقت') : __('بدء المؤقت') }}</button>
+                        </form>
+                        @if ($edRunning && !$edRunningHere)<p class="ed-hint" style="margin-top:8px">{{ __('البدء هنا يوقف المؤقت الذي يعمل على مهمة أخرى.') }}</p>@endif
+                    @endif
+                </div>
+            </section>
+        @endif
 
         <section class="ed-panel">
             <div class="ed-panel__head"><h2>{{ __('التفاصيل') }}</h2></div>

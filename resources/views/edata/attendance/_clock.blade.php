@@ -86,7 +86,7 @@
                 @endif
             </div>
             @if ($working)
-                <form method="POST" action="{{ route('edata.me.clock-out') }}" data-moment-form data-confirm="{{ __('تسجيل الانصراف الآن؟') }}" data-confirm-text="{{ __('سيتوقف العداد ويُحفظ وقت خروجك.') }}" data-confirm-yes="{{ __('تسجيل الانصراف') }}" data-confirm-safe>
+                <form method="POST" action="{{ route('edata.me.clock-out') }}" data-moment-form data-confirm="{{ __('تسجيل الانصراف الآن؟') }}" data-confirm-text="{{ __('سيتوقف العداد ويُحفظ وقت خروجك.') }}" data-confirm-yes="{{ __('تسجيل الانصراف') }}" data-confirm-safe data-confirm-note="report" data-confirm-note-label="{{ __('تقرير نهاية اليوم (اختياري)') }}" data-confirm-note-placeholder="{{ __('ما الذي تم إنجازه اليوم؟ وما الذي يحتاج إلى مساعدة؟') }}" data-confirm-note-hint="{{ __('يصل إلى الإدارة في صفحة التقارير اليومية.') }}">
                     @csrf
                     <button type="submit" class="ed-clock__btn ed-clock__btn--out"><i class="ti ti-logout"></i>{{ __('تسجيل الانصراف') }}</button>
                 </form>

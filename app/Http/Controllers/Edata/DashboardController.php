@@ -36,8 +36,14 @@ class DashboardController extends BaseController
             return app(OldDashboard::class)->account_dashboard_index();
         }
 
+        // Whoever holds the invoices permission without the full company view gets a
+        // dashboard limited to the invoices and this month's total.
+        $financeOnly = false;
         if (Access::scope($me, 'projects') !== Access::ALL && !Access::isOwner($me)) {
-            return redirect()->route('edata.me');
+            if (!$me->can('manage invoice')) {
+                return redirect()->route('edata.me');
+            }
+            $financeOnly = true;
         }
 
         $company = $this->companyId();
@@ -49,7 +55,7 @@ class DashboardController extends BaseController
         $employeeFilter = $request->filled('employee') ? (int) $request->query('employee') : null;
 
         $doneStages = TaskRules::doneStageIds($company);
-        $canAttendance = $me->can('manage attendance');
+        $canAttendance = !$financeOnly && $me->can('manage attendance');
         $canFinance = $me->can('manage invoice') || $me->can('view finance summary');
 
         $data = [
@@ -63,6 +69,7 @@ class DashboardController extends BaseController
             'employeeFilter' => $employeeFilter,
             'canAttendance' => $canAttendance,
             'canFinance' => $canFinance,
+            'financeOnly' => $financeOnly,
             'allProjects' => Access::projects($me)->orderByDesc('id')->limit(400)->get(['id', 'project_name']),
             'allStaff' => Access::staff($me)->orderBy('name')->get(['id', 'name']),
         ];
@@ -129,7 +136,7 @@ class DashboardController extends BaseController
         $data['team'] = null;
         if ($canAttendance) {
             $service = AttendanceService::for($company);
-            $employeesQuery = Access::employees($me);
+            $employeesQuery = Access::employees($me)->where('employees.employment_status', '!=', 'ended');
             if ($employeeFilter) {
                 $employeesQuery->where('employees.user_id', $employeeFilter);
             }
@@ -155,7 +162,7 @@ class DashboardController extends BaseController
         }
 
         // Clients
-        $data['clientCount'] = $me->can('manage customer') ? Access::customers($me)->whereNull('archived_at')->count() : null;
+        $data['clientCount'] = !$financeOnly && $me->can('manage customer') ? Access::customers($me)->whereNull('archived_at')->count() : null;
 
         // Money
         $data['money'] = null;
@@ -175,6 +182,7 @@ class DashboardController extends BaseController
 
             $data['money'] = [
                 'summary' => $summary,
+                'month' => InvoiceMath::summary((clone $invoiceQuery)->whereBetween('invoices.issue_date', [$now->copy()->startOfMonth()->toDateString(), $now->copy()->endOfMonth()->toDateString()]), $company),
                 'revenue_period' => InvoiceMath::collectedBetween($company, $from, $to),
                 'revenue_month' => InvoiceMath::collectedBetween($company, $now->copy()->startOfMonth(), $now),
                 'revenue_year' => InvoiceMath::collectedBetween($company, $now->copy()->startOfYear(), $now),
@@ -188,7 +196,7 @@ class DashboardController extends BaseController
         $data['employeeTasks'] = $this->employeeTasks($me, $doneStages, $from, $to, $projectFilter);
 
         // Activity
-        $data['activity'] = $me->can('view audit log')
+        $data['activity'] = !$financeOnly && $me->can('view audit log')
             ? EdataAuditLog::where('company_id', $company)->orderByDesc('id')->limit(9)->get()
             : collect();
 

@@ -4,6 +4,7 @@ use App\Http\Controllers\Edata\AttendanceController;
 use App\Http\Controllers\Edata\AuditLogController;
 use App\Http\Controllers\Edata\ClientController;
 use App\Http\Controllers\Edata\DashboardController;
+use App\Http\Controllers\Edata\EmployeeServicesController;
 use App\Http\Controllers\Edata\InvoiceController;
 use App\Http\Controllers\Edata\KudosController;
 use App\Http\Controllers\Edata\LegacyRedirectController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Edata\ProjectController;
 use App\Http\Controllers\Edata\PublicInvoiceController;
 use App\Http\Controllers\Edata\RoleController;
 use App\Http\Controllers\Edata\TaskController;
+use App\Http\Controllers\Edata\TeamDeskController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -55,6 +57,21 @@ Route::middleware(['auth', 'verified', 'XSS', 'revalidate'])->group(function () 
     Route::post('my/attendance/clock-out', [MeController::class, 'clockOut'])->name('edata.me.clock-out');
     Route::post('my/kudos', [KudosController::class, 'store'])->name('edata.kudos.store');
     Route::delete('my/kudos/{kudos}', [KudosController::class, 'destroy'])->whereNumber('kudos')->name('edata.kudos.destroy');
+    Route::post('my/requests/leave', [EmployeeServicesController::class, 'leave'])->middleware('throttle:20,1')->name('edata.my.leave');
+    Route::post('my/requests/permission', [EmployeeServicesController::class, 'permission'])->middleware('throttle:20,1')->name('edata.my.permission');
+    Route::post('my/requests/correction', [EmployeeServicesController::class, 'correction'])->middleware('throttle:20,1')->name('edata.my.correction');
+    Route::post('my/plan', [EmployeeServicesController::class, 'plan'])->name('edata.my.plan');
+    Route::post('my/timer/{task}', [EmployeeServicesController::class, 'startTimer'])->whereNumber('task')->name('edata.timer.start');
+    Route::post('my/timer-stop', [EmployeeServicesController::class, 'stopTimer'])->name('edata.timer.stop');
+    Route::post('my/announcements/{announcement}/read', [EmployeeServicesController::class, 'readAnnouncement'])->whereNumber('announcement')->name('edata.announcements.read');
+
+    // Team desk: approvals, daily reports, announcements
+    Route::get('requests', [TeamDeskController::class, 'requests'])->name('edata.requests.index');
+    Route::post('requests/{type}/{id}', [TeamDeskController::class, 'decide'])->where('type', 'leave|request')->whereNumber('id')->name('edata.requests.decide');
+    Route::get('daily-reports', [TeamDeskController::class, 'daily'])->name('edata.daily.index');
+    Route::get('announcements', [TeamDeskController::class, 'announcements'])->name('edata.announcements.index');
+    Route::post('announcements', [TeamDeskController::class, 'storeAnnouncement'])->name('edata.announcements.store');
+    Route::post('announcements/{announcement}/archive', [TeamDeskController::class, 'archiveAnnouncement'])->whereNumber('announcement')->name('edata.announcements.archive');
 
     // Attendance
     Route::get('attendance', [AttendanceController::class, 'index'])->name('edata.attendance.index');
@@ -84,6 +101,8 @@ Route::middleware(['auth', 'verified', 'XSS', 'revalidate'])->group(function () 
     Route::get('people/{user}/edit', [PeopleController::class, 'edit'])->whereNumber('user')->name('edata.people.edit');
     Route::put('people/{user}', [PeopleController::class, 'update'])->whereNumber('user')->name('edata.people.update');
     Route::post('people/{user}/password', [PeopleController::class, 'password'])->whereNumber('user')->name('edata.people.password');
+    Route::post('people/{user}/end-service', [PeopleController::class, 'endService'])->whereNumber('user')->name('edata.people.end');
+    Route::delete('people/{user}', [PeopleController::class, 'destroy'])->whereNumber('user')->name('edata.people.destroy');
     Route::post('people/{user}/access', [PeopleController::class, 'toggleAccess'])->whereNumber('user')->name('edata.people.access');
     Route::get('users', [LegacyRedirectController::class, 'people'])->name('users.index');
     Route::delete('users/{user}', [PeopleController::class, 'destroyLegacy'])->whereNumber('user')->name('users.destroy');

@@ -49,6 +49,7 @@ class Labels
         'overtime' => ['عمل إضافي', 'primary'],
         'missing_out' => ['لم يسجل الانصراف', 'bad'],
         'not_yet' => ['لم يسجل بعد', 'neutral'],
+        'permission' => ['بإذن', 'info'],
     ];
 
     public const CLIENT_STATUSES = [

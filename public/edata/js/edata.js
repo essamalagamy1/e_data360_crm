@@ -155,9 +155,22 @@
         var reasonWrap = $('#edConfirmReasonWrap', dialog);
         var reason = $('#edConfirmReason', dialog);
         var needsReason = trigger.dataset.confirmReason !== undefined;
-        reasonWrap.hidden = !needsReason;
+        // An optional note (for example the end-of-day report) reuses the same box.
+        var note = trigger.dataset.confirmNote;
+        var label = $('#edConfirmReasonLabel', dialog);
+        var hint = $('#edConfirmReasonHint', dialog);
+        reasonWrap.hidden = !needsReason && !note;
         reason.value = '';
         reason.required = needsReason;
+        reason.minLength = needsReason ? 3 : 0;
+        reason.maxLength = note ? 2000 : 400;
+        reason.rows = note ? 4 : 2;
+        reason.placeholder = note ? (trigger.dataset.confirmNotePlaceholder || '') : '';
+        reason.dataset.field = note || 'reason';
+        if (label) { label.textContent = note ? trigger.dataset.confirmNoteLabel : label.dataset.default; }
+        if (hint) { hint.textContent = note ? (trigger.dataset.confirmNoteHint || '') : hint.dataset.default; }
+        var star = $('#edConfirmReasonStar', dialog);
+        if (star) { star.hidden = !needsReason; }
         pending = form;
         dialog.showModal();
         return false;
@@ -168,10 +181,10 @@
             event.preventDefault();
             var reason = $('#edConfirmReason', dialog);
             if (pending) {
-                if (reason.required) {
+                if (reason.required || (reason.dataset.field !== 'reason' && reason.value.trim() !== '')) {
                     var input = document.createElement('input');
                     input.type = 'hidden';
-                    input.name = 'reason';
+                    input.name = reason.dataset.field || 'reason';
                     input.value = reason.value;
                     pending.appendChild(input);
                 }
@@ -784,4 +797,36 @@
 
     /* ---------- Flash messages from the server ---------- */
     (window.edFlash || []).forEach(function (flash) { toast(flash.text, flash.type); });
+})();
+
+/* ---------- Task timer: a live counter from the start time ---------- */
+(function () {
+    var clocks = document.querySelectorAll('[data-timer-since]');
+    if (!clocks.length) { return; }
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function tick() {
+        var now = Math.floor(Date.now() / 1000);
+        clocks.forEach(function (el) {
+            var s = Math.max(0, now - parseInt(el.dataset.timerSince, 10));
+            el.textContent = pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
+        });
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+
+/* ---------- Day plan: at most three tasks ---------- */
+(function () {
+    var form = document.querySelector('[data-plan-form]');
+    if (!form) { return; }
+    var picks = form.querySelectorAll('[data-plan-pick]');
+    function sync() {
+        var count = form.querySelectorAll('[data-plan-pick]:checked').length;
+        picks.forEach(function (box) {
+            box.disabled = !box.checked && count >= 3;
+            box.closest('.ed-chip').style.opacity = box.disabled ? '.45' : '';
+        });
+    }
+    picks.forEach(function (box) { box.addEventListener('change', sync); });
+    sync();
 })();

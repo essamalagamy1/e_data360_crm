@@ -20,6 +20,7 @@
 @section('content')
 <div class="ed-stack ed-reveal">
     @include('edata.attendance._clock')
+    @include('edata.me._announcements')
 
     <div class="ed-figures" data-my-figures>
         <x-ed.figure :label="__('مهام مفتوحة')" :count="$openCount" :href="route('edata.tasks.index', ['state' => 'mine'])" />
@@ -33,6 +34,10 @@
 
     <div class="ed-me-grid">
         <div class="ed-stack">
+            @if ($employee)
+                @include('edata.me._plan')
+            @endif
+
             <section class="ed-panel">
                 <div class="ed-panel__head">
                     <h2>{{ __('مهامي القادمة') }}</h2>
@@ -57,6 +62,14 @@
                                         <span class="ed-due {{ TaskRules::isOverdue($task, $company) ? 'is-late' : '' }}"><i class="ti ti-calendar"></i>{{ Labels::date($task->end_date, 'j M') }}</span>
                                     @endif
                                 </a>
+                                @php $isRunning = $running && (int) $running->task_id === (int) $task->id; @endphp
+                                <form method="POST" action="{{ $isRunning ? route('edata.timer.stop') : route('edata.timer.start', $task->id) }}" class="ed-timerbtn {{ $isRunning ? 'is-running' : '' }}">
+                                    @csrf
+                                    <button type="submit" title="{{ $isRunning ? __('إيقاف المؤقت') : __('بدء المؤقت') }}" aria-label="{{ ($isRunning ? __('إيقاف المؤقت') : __('بدء المؤقت')) . ': ' . $task->name }}">
+                                        <i class="ti {{ $isRunning ? 'ti-player-stop' : 'ti-player-play' }}"></i>
+                                        @if (!empty($taskSeconds[$task->id]))<span class="ed-num">{{ Labels::hours($taskSeconds[$task->id]) }}</span>@endif
+                                    </button>
+                                </form>
                             </div>
                         @endforeach
                     </div>
@@ -111,6 +124,8 @@
                 </div>
             </section>
 
+            @include('edata.me._month')
+
             @if ($employee)
                 <section class="ed-panel">
                     <div class="ed-panel__head">
@@ -140,6 +155,10 @@
                         </div>
                     </div>
                 </section>
+            @endif
+
+            @if ($employee)
+                @include('edata.me._requests')
             @endif
 
             <section class="ed-panel" id="kudos">

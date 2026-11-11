@@ -107,7 +107,7 @@ return [
             'scoped' => true,
         ],
         'invoices' => [
-            'label' => 'الفواتير والمدفوعات',
+            'label' => 'الفواتير',
             'view' => ['manage invoice', 'show invoice'],
             'create' => ['create invoice', 'create payment invoice', 'send invoice'],
             'edit' => ['edit invoice'],
