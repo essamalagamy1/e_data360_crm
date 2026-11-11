@@ -115,7 +115,7 @@ class TeamDeskController extends BaseController
     public function daily(Request $request)
     {
         $me = $this->me();
-        Access::need($me, 'manage attendance');
+        abort_unless(EmployeeServices::allows($me, 'daily'), 403);
         $company = $this->companyId();
         $service = AttendanceService::for($company);
         $zone = $service->rules()['zone'];

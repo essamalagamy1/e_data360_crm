@@ -23,7 +23,12 @@
                 </tr>
             </thead>
             <tbody>
+                @php $edGroupShown = false; @endphp
                 @foreach ($modules as $key => $module)
+                    @if (($module['group'] ?? null) === 'services' && !$edGroupShown)
+                        @php $edGroupShown = true; @endphp
+                        <tr class="ed-matrix__group"><th colspan="{{ count($actions) + 2 }}">{{ __('خدمات الموظفين') }}</th></tr>
+                    @endif
                     <tr>
                         <td>{{ __($module['label']) }}</td>
                         @foreach ($actions as $action => $label)
@@ -40,7 +45,7 @@
                             @if (!empty($module['scoped']))
                                 <select class="ed-select" name="scopes[{{ $key }}]" aria-label="{{ __('نطاق البيانات') }} {{ __($module['label']) }}">
                                     @foreach ($scopeOptions as $value => $label)
-                                        <option value="{{ $value }}" @selected(old("scopes.$key", $scopes[$key] ?? 'own') === $value)>{{ __($label) }}</option>
+                                        <option value="{{ $value }}" @selected(old("scopes.$key", $scopes[$key] ?? ($key === 'invoices' ? 'all' : 'own')) === $value)>{{ __($label) }}</option>
                                     @endforeach
                                 </select>
                             @else
@@ -57,5 +62,5 @@
         <button class="ed-btn ed-btn--primary" type="submit">{{ $role->exists ? __('حفظ الدور') : __('إنشاء الدور') }}</button>
     </div>
 </form>
-<p class="ed-hint" style="margin-top:10px">{{ __('تسجيل الحضور والانصراف وعرض المهام المسندة متاحان لكل موظف ولا يحتاجان صلاحية منفصلة.') }}</p>
+<p class="ed-hint" style="margin-top:10px">{{ __('تسجيل الحضور والانصراف وعرض المهام المسندة وقراءة الإعلانات متاحة لكل موظف ولا تحتاج صلاحية منفصلة.') }}</p>
 @endsection

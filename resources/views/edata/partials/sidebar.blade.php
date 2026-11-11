@@ -6,7 +6,7 @@
     $edCompany = (int) $edMe->creatorId();
     $edLogo = $edSettings['company_logo_dark'] ?? 'logo-dark.png';
     $edHasEmployee = \App\Models\Employee::where('user_id', $edMe->id)->exists();
-    $edOverview = Access::isOwner($edMe) || Access::scope($edMe, 'projects') === Access::ALL || $edMe->can('manage invoice');
+    $edOverview = Access::fullOverview($edMe) || $edMe->can('manage invoice');
 
     $edOverdueTasks = Access::tasks($edMe)
         ->whereNull('cancelled_at')->where('is_complete', 0)
@@ -24,6 +24,7 @@
     };
 
     $edCanApprove = \App\Support\Edata\EmployeeServices::canApprove($edMe);
+    $edCanDaily = \App\Support\Edata\EmployeeServices::allows($edMe, 'daily');
     $edPending = $edCanApprove && \Illuminate\Support\Facades\Schema::hasTable('edata_requests') ? \App\Support\Edata\EmployeeServices::pendingCount($edCompany) : 0;
     $edCanAnnounce = Access::isOwner($edMe) || $edMe->can('create announcement') || $edMe->can('manage announcement');
 @endphp
@@ -43,15 +44,17 @@
             <a class="ed-nav {{ $edActive('edata.me.attendance') }}" href="{{ route('edata.me.attendance') }}"><i class="ti ti-clock"></i><span>{{ __('حضوري') }}</span></a>
         @endif
 
-        @if ($edMe->can('manage user') || $edMe->can('manage employee') || $edMe->can('manage attendance') || $edCanApprove || $edCanAnnounce)
+        @if ($edMe->can('manage user') || $edMe->can('manage employee') || $edMe->can('manage attendance') || $edCanApprove || $edCanAnnounce || $edCanDaily)
             <div class="ed-side__group">{{ __('الفريق') }}</div>
             @if ($edMe->can('manage user') || $edMe->can('manage employee'))
                 <a class="ed-nav {{ $edActive('edata.people.*') }}" href="{{ route('edata.people.index') }}"><i class="ti ti-users"></i><span>{{ __('الموظفون') }}</span></a>
             @endif
             @can('manage attendance')
                 <a class="ed-nav {{ $edActive('edata.attendance.*') }}" href="{{ route('edata.attendance.index') }}"><i class="ti ti-calendar-time"></i><span>{{ __('الحضور والانصراف') }}</span></a>
-                <a class="ed-nav {{ $edActive('edata.daily.*') }}" href="{{ route('edata.daily.index') }}"><i class="ti ti-notes"></i><span>{{ __('التقارير اليومية') }}</span></a>
             @endcan
+            @if ($edCanDaily)
+                <a class="ed-nav {{ $edActive('edata.daily.*') }}" href="{{ route('edata.daily.index') }}"><i class="ti ti-notes"></i><span>{{ __('التقارير اليومية') }}</span></a>
+            @endif
             @if ($edCanApprove)
                 <a class="ed-nav {{ $edActive('edata.requests.*') }}" href="{{ route('edata.requests.index') }}">
                     <i class="ti ti-inbox"></i><span>{{ __('الطلبات') }}</span>

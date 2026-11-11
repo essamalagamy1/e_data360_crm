@@ -748,3 +748,6 @@ a.ed-alert:hover { filter: brightness(.97); }
 .ed-ended { opacity: .6; }
 
 @media (prefers-reduced-motion: reduce) { .ed-news__item, .ed-msum > div, .ed-timerbar__dot { animation: none; } }
+
+/* Roles matrix: heading row before the employee services */
+.ed-matrix tr.ed-matrix__group th { background: var(--surface-2, #F2F7F7); color: var(--teal, #01485A); font-weight: 700; text-align: start; padding: 10px 14px; font-size: 13px; }

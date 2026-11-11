@@ -20,14 +20,26 @@ class EmployeeServices
     /** Who decides on attendance corrections, permissions and leave: the owner and attendance editors. */
     public static function approverIds(int $company): array
     {
-        $ids = Notifier::holders($company, 'edit attendance');
-
-        return array_values(array_unique(array_merge($ids, Notifier::holders($company, 'manage leave'))));
+        return array_values(array_unique(Notifier::holders($company, 'manage leave')));
     }
 
     public static function canApprove(User $user): bool
     {
-        return Access::isOwner($user) || $user->can('edit attendance') || $user->can('manage leave');
+        return Access::isOwner($user) || $user->can('manage leave');
+    }
+
+    /** The permission behind each service, set per role from the roles screen. */
+    public const FEATURES = [
+        'requests' => 'create self request',
+        'plan' => 'use day plan',
+        'timer' => 'use task timer',
+        'summary' => 'view month summary',
+        'daily' => 'view daily report',
+    ];
+
+    public static function allows(User $user, string $feature): bool
+    {
+        return Access::isOwner($user) || $user->can(self::FEATURES[$feature]);
     }
 
     public static function pendingCount(int $company): int

@@ -31,6 +31,16 @@ class Access
         return in_array($user->type, ['company', 'super admin'], true);
     }
 
+    /**
+     * The whole management dashboard: the owner, or someone who sees every project.
+     * Anyone else with the invoices permission gets the invoices-only dashboard.
+     */
+    public static function fullOverview(User $user): bool
+    {
+        return self::isOwner($user)
+            || (self::scope($user, 'projects') === self::ALL && ($user->can('manage project') || $user->can('view project')));
+    }
+
     public static function scope(User $user, string $module): string
     {
         if (self::isOwner($user)) {

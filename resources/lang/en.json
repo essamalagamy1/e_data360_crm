@@ -3753,5 +3753,12 @@
     "تم رفض الطلب.": "Request rejected.",
     "تم نشر الإعلان، ووصل إشعار لكل الفريق.": "Announcement published and the whole team notified.",
     "تم إخفاء الإعلان. يبقى في السجل.": "Announcement hidden. It stays in the log.",
-    "لهذا الموظف سجل حضور أو إجازات أو مشاريع أو مهام، لذلك لا يُحذف حتى لا يضيع السجل. استخدم «إنهاء الخدمة» بدلاً من ذلك.": "This employee has attendance, leave, projects or tasks, so they are not deleted to keep the records. Use End service instead."
+    "لهذا الموظف سجل حضور أو إجازات أو مشاريع أو مهام، لذلك لا يُحذف حتى لا يضيع السجل. استخدم «إنهاء الخدمة» بدلاً من ذلك.": "This employee has attendance, leave, projects or tasks, so they are not deleted to keep the records. Use End service instead.",
+    "خدمات الموظفين": "Employee services",
+    "طلب إجازة أو إذن أو تصحيح حضور": "Leave, permission or attendance correction requests",
+    "خطة اليوم وتقرير نهاية اليوم": "Day plan and end-of-day report",
+    "مؤقت المهام": "Task timer",
+    "صفحة الطلبات (الموافقة والرفض)": "Requests page (approve and reject)",
+    "لوحة الإعلانات": "Announcements board",
+    "تسجيل الحضور والانصراف وعرض المهام المسندة وقراءة الإعلانات متاحة لكل موظف ولا تحتاج صلاحية منفصلة.": "Clocking in and out, viewing assigned tasks and reading announcements are open to every employee and need no separate permission."
 }

@@ -39,7 +39,7 @@ class DashboardController extends BaseController
         // Whoever holds the invoices permission without the full company view gets a
         // dashboard limited to the invoices and this month's total.
         $financeOnly = false;
-        if (Access::scope($me, 'projects') !== Access::ALL && !Access::isOwner($me)) {
+        if (!Access::fullOverview($me)) {
             if (!$me->can('manage invoice')) {
                 return redirect()->route('edata.me');
             }

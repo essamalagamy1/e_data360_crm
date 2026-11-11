@@ -8,7 +8,7 @@
     $isLate = TaskRules::isOverdue($task, $company);
     $edMeId = (int) auth()->id();
     $edTimerOk = \Illuminate\Support\Facades\Schema::hasTable('edata_task_timers');
-    $edCanTime = $edTimerOk && (auth()->user()->can('edit project task') || in_array($edMeId, TaskRules::assigneeIds($task), true));
+    $edCanTime = $edTimerOk && \App\Support\Edata\EmployeeServices::allows(auth()->user(), 'timer') && (auth()->user()->can('edit project task') || in_array($edMeId, TaskRules::assigneeIds($task), true));
     $edRunning = $edTimerOk ? \App\Support\Edata\EmployeeServices::runningTimer($edMeId) : null;
     $edRunningHere = $edRunning && (int) $edRunning->task_id === (int) $task->id;
     $edTaskSeconds = $edTimerOk ? (\App\Support\Edata\EmployeeServices::taskSeconds([$task->id])[$task->id] ?? 0) : 0;

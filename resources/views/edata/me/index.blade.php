@@ -34,7 +34,7 @@
 
     <div class="ed-me-grid">
         <div class="ed-stack">
-            @if ($employee)
+            @if ($employee && $can['plan'])
                 @include('edata.me._plan')
             @endif
 
@@ -62,6 +62,7 @@
                                         <span class="ed-due {{ TaskRules::isOverdue($task, $company) ? 'is-late' : '' }}"><i class="ti ti-calendar"></i>{{ Labels::date($task->end_date, 'j M') }}</span>
                                     @endif
                                 </a>
+                                @if ($can['timer'])
                                 @php $isRunning = $running && (int) $running->task_id === (int) $task->id; @endphp
                                 <form method="POST" action="{{ $isRunning ? route('edata.timer.stop') : route('edata.timer.start', $task->id) }}" class="ed-timerbtn {{ $isRunning ? 'is-running' : '' }}">
                                     @csrf
@@ -70,6 +71,7 @@
                                         @if (!empty($taskSeconds[$task->id]))<span class="ed-num">{{ Labels::hours($taskSeconds[$task->id]) }}</span>@endif
                                     </button>
                                 </form>
+                                @endif
                             </div>
                         @endforeach
                     </div>
@@ -124,7 +126,9 @@
                 </div>
             </section>
 
-            @include('edata.me._month')
+            @if ($can['summary'])
+                @include('edata.me._month')
+            @endif
 
             @if ($employee)
                 <section class="ed-panel">
@@ -157,7 +161,7 @@
                 </section>
             @endif
 
-            @if ($employee)
+            @if ($employee && $can['requests'])
                 @include('edata.me._requests')
             @endif
 

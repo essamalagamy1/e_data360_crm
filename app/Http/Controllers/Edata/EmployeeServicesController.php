@@ -36,6 +36,7 @@ class EmployeeServicesController extends BaseController
 
     public function leave(Request $request)
     {
+        abort_unless(EmployeeServices::allows($this->me(), 'requests'), 403);
         $employee = $this->myEmployee();
         $company = $this->companyId();
 
@@ -67,11 +68,15 @@ class EmployeeServicesController extends BaseController
 
     public function permission(Request $request)
     {
+        abort_unless(EmployeeServices::allows($this->me(), 'requests'), 403);
+
         return $this->storeRequest($request, 'permission');
     }
 
     public function correction(Request $request)
     {
+        abort_unless(EmployeeServices::allows($this->me(), 'requests'), 403);
+
         return $this->storeRequest($request, 'correction');
     }
 
@@ -120,6 +125,7 @@ class EmployeeServicesController extends BaseController
     /** Up to three of the person's own open tasks to focus on today. */
     public function plan(Request $request)
     {
+        abort_unless(EmployeeServices::allows($this->me(), 'plan'), 403);
         $employee = $this->myEmployee();
         $me = $this->me();
         $company = $this->companyId();
@@ -142,6 +148,7 @@ class EmployeeServicesController extends BaseController
     public function startTimer(int $task)
     {
         $me = $this->me();
+        abort_unless(EmployeeServices::allows($me, 'timer'), 403);
         $record = Access::tasks($me)->findOrFail($task);
         abort_unless($me->can('edit project task') || in_array((int) $me->id, TaskRules::assigneeIds($record), true), 403);
 

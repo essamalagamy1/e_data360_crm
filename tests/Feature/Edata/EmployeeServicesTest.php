@@ -22,6 +22,53 @@ class EmployeeServicesTest extends EdataTestCase
         Carbon::setTestNow(Carbon::parse('2026-11-05 09:00', 'Africa/Cairo')->utc());
     }
 
+    /** The employee services every role gets by default; tests opt out through parent::staff(). */
+    private const SELF = ['create self request', 'use day plan', 'use task timer', 'view month summary'];
+
+    protected function staff(array $permissions = [], string $scope = 'own', ?string $name = null): User
+    {
+        return parent::staff(array_merge(self::SELF, $permissions), $scope, $name);
+    }
+
+    public function test_services_follow_the_role_permissions(): void
+    {
+        $user = parent::staff();
+        $employee = $this->employeeFor($user);
+        $task = $this->task($user, 'Locked task');
+
+        $this->actingAs($user)->get(route('edata.me'))->assertOk()
+            ->assertDontSee('ملخص الشهر')->assertDontSee('خطة اليوم')->assertDontSee(route('edata.timer.start', $task->id), false)->assertDontSee(route('edata.my.leave'), false);
+        $this->post(route('edata.my.permission'), ['date' => '2026-11-05', 'time_from' => '13:00', 'time_to' => '14:00', 'reason' => 'ظرف'])->assertForbidden();
+        $this->post(route('edata.my.plan'), ['tasks' => [$task->id]])->assertForbidden();
+        $this->post(route('edata.timer.start', $task->id))->assertForbidden();
+        $this->assertFalse(DB::table('edata_requests')->where('employee_id', $employee->id)->exists());
+
+        // Daily reports and the requests inbox each have their own permission.
+        $manager = parent::staff(['manage attendance', 'edit attendance']);
+        $this->actingAs($manager)->get(route('edata.daily.index'))->assertForbidden();
+        $this->get(route('edata.requests.index'))->assertForbidden();
+        $lead = parent::staff(['view daily report', 'manage leave']);
+        $this->actingAs($lead)->get(route('edata.daily.index'))->assertOk();
+        $this->get(route('edata.requests.index'))->assertOk();
+    }
+
+    public function test_roles_screen_lists_the_services(): void
+    {
+        $this->actingAs($this->owner)->get(route('roles.create'))->assertOk()
+            ->assertSee('actions[self_requests][view]', false)->assertSee('actions[day_plan][view]', false)->assertSee('actions[month_summary][view]', false)
+            ->assertSee('actions[daily_reports][view]', false)->assertSee('actions[announcements][create]', false)->assertSee('actions[task_timer][view]', false);
+    }
+
+    public function test_invoices_only_even_with_company_wide_scopes(): void
+    {
+        $this->invoice(1500);
+        // Every scope is the whole company, but the role only holds the invoices permission.
+        $person = parent::staff(['manage invoice', 'show invoice'], 'all');
+
+        $this->actingAs($person)->get(route('dashboard'))->assertOk()
+            ->assertSee('فواتير الشهر الحالي')->assertSee('الفواتير والتحصيل')->assertDontSee('مشاريع تقترب مواعيدها')->assertDontSee('أُنجزت في الفترة');
+    }
+
     private function task(User $user, string $name = 'Task'): ProjectTask
     {
         $project = $this->project([], [$user]);

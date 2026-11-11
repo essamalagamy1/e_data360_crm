@@ -67,7 +67,10 @@ class MeController extends BaseController
         $running = EmployeeServices::runningTimer($me->id);
         $runningTask = $running ? DB::table('project_tasks')->where('id', $running->task_id)->value('name') : null;
 
+        $can = collect(array_keys(EmployeeServices::FEATURES))->mapWithKeys(fn ($f) => [$f => EmployeeServices::allows($me, $f)])->all();
+
         return view('edata.me.index', [
+            'can' => $can,
             'leaveBalances' => $employee ? EmployeeServices::leaveBalances($employee, $company, $now) : collect(),
             'myRequests' => $employee ? EmployeeServices::myRequests($employee) : collect(),
             'dayLog' => $dayLog,
@@ -186,7 +189,7 @@ class MeController extends BaseController
 
         // The end-of-day report is optional; it lands on the managers' daily reports page.
         $report = trim((string) ($data['report'] ?? ''));
-        if ($report !== '') {
+        if ($report !== '' && EmployeeServices::allows($this->me(), 'plan')) {
             DB::table('edata_daily_logs')->updateOrInsert(
                 ['employee_id' => $employee->id, 'date' => Carbon::now($service->rules()['zone'])->toDateString()],
                 ['company_id' => $company, 'user_id' => $this->me()->id, 'report' => $report, 'updated_at' => now(), 'created_at' => now()]
