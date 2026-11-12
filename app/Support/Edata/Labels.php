@@ -10,6 +10,19 @@ use Carbon\Carbon;
  */
 class Labels
 {
+    /** Carbon dayOfWeek => Arabic name. */
+    public const WEEKDAYS = [0 => 'الأحد', 1 => 'الاثنين', 2 => 'الثلاثاء', 3 => 'الأربعاء', 4 => 'الخميس', 5 => 'الجمعة', 6 => 'السبت'];
+
+    /** «دوام كامل» or «دوام جزئي: الأحد، الثلاثاء». */
+    public static function schedule(?array $days): string
+    {
+        if (!$days) {
+            return __('دوام كامل');
+        }
+
+        return __('دوام جزئي') . ': ' . implode('، ', array_map(fn ($d) => __(self::WEEKDAYS[$d] ?? ''), $days));
+    }
+
     public const PROJECT_STATUSES = [
         'new' => ['جديد', 'neutral'],
         'planning' => ['قيد التخطيط', 'info'],

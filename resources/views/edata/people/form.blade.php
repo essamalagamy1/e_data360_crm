@@ -54,6 +54,28 @@
                         @endforeach
                     </select>
                 </x-ed.field>
+                @php
+                    $edOwnDays = \App\Support\Edata\AttendanceService::ownDays($employee);
+                    $edDays = array_map('intval', (array) old('work_days', $edOwnDays ?? []));
+                    $edType = old('work_type', $edOwnDays ? 'part' : 'full');
+                @endphp
+                <x-ed.field :label="__('نوع الدوام')" name="work_type" full :hint="__('الدوام الكامل يتبع أيام عمل الشركة. في الدوام الجزئي يُحسب الحضور والغياب في الأيام المختارة فقط.')">
+                    <div class="ed-worktype">
+                        <div class="ed-chips">
+                            <label class="ed-chip"><input type="radio" name="work_type" value="full" @checked($edType === 'full')>{{ __('دوام كامل') }}</label>
+                            <label class="ed-chip"><input type="radio" name="work_type" value="part" @checked($edType === 'part')>{{ __('دوام جزئي') }}</label>
+                        </div>
+                        <div class="ed-worktype__days">
+                            <span class="ed-hint">{{ __('أيام الحضور') }}</span>
+                            <div class="ed-chips">
+                                @foreach (\App\Support\Edata\Labels::WEEKDAYS as $value => $label)
+                                    <label class="ed-chip"><input type="checkbox" name="work_days[]" value="{{ $value }}" @checked(in_array($value, $edDays, true))>{{ __($label) }}</label>
+                                @endforeach
+                            </div>
+                            @error('work_days')<span class="ed-error" role="alert">{{ $message }}</span>@enderror
+                        </div>
+                    </div>
+                </x-ed.field>
                 <x-ed.field :label="__('الصورة الشخصية')" name="avatar" full :hint="__('JPG أو PNG أو WEBP، حتى 2 ميجابايت.')">
                     <input class="ed-input" style="padding-block:8px" type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp">
                 </x-ed.field>

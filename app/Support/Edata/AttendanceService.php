@@ -52,6 +52,32 @@ class AttendanceService
         ];
     }
 
+    /** A part-time employee's own work days, or null for full time (company days). */
+    public static function ownDays(?Employee $employee): ?array
+    {
+        $raw = trim((string) ($employee->edata_work_days ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+        $days = array_values(array_unique(array_filter(array_map('intval', explode(',', $raw)), fn ($d) => $d >= 0 && $d <= 6)));
+        sort($days);
+
+        return $days ?: null;
+    }
+
+    /** The company rules with the work days of this employee. */
+    public function rulesFor(Employee $employee): array
+    {
+        $rules = $this->rules();
+        $own = self::ownDays($employee);
+        $rules['part_time'] = (bool) $own;
+        if ($own) {
+            $rules['work_days'] = $own;
+        }
+
+        return $rules;
+    }
+
     private function nowUtc(): Carbon
     {
         return Carbon::now('UTC');
@@ -269,7 +295,7 @@ class AttendanceService
     /** What the clock page needs. All durations come from stored values, never the browser. */
     public function stateFor(Employee $employee): array
     {
-        $rules = $this->rules();
+        $rules = $this->rulesFor($employee);
         $today = $this->nowLocal()->toDateString();
         $open = $this->openSession($employee);
         $nowUtc = $this->nowUtc();
@@ -394,6 +420,8 @@ class AttendanceService
     private function buildDay(Employee $employee, string $date, Collection $sessions, Collection $leaves, Collection $holidays, array $rules, bool $permitted = false): array
     {
         $day = Carbon::parse($date);
+        $workDays = self::ownDays($employee) ?? $rules['work_days'];
+        $isWorkDay = in_array($day->dayOfWeek, $workDays, true);
         $localNow = $this->nowLocal();
         $today = $localNow->toDateString();
         $sessions = $sessions->filter(fn ($row) => $row->clock_in !== '00:00:00' && $row->clock_in !== null)->values();
@@ -439,6 +467,11 @@ class AttendanceService
             $lateMinutes = $lateSeconds > $rules['grace'] * 60 ? (int) ceil($lateSeconds / 60) : 0;
             $overtime = max(0, $seconds - $rules['required_seconds']);
 
+            // Coming in on a day off is extra work, never a late arrival.
+            if (!$isWorkDay) {
+                $lateMinutes = 0;
+            }
+
             $flags = [];
             if ($permitted) {
                 $lateMinutes = 0;
@@ -482,7 +515,7 @@ class AttendanceService
                 return array_merge($base, ['status' => 'holiday']);
             }
         }
-        if (!in_array($day->dayOfWeek, $rules['work_days'], true)) {
+        if (!$isWorkDay) {
             return array_merge($base, ['status' => 'weekend']);
         }
 

@@ -110,6 +110,7 @@
                         <dt>{{ __('البريد') }}</dt><dd dir="ltr" style="text-align:start">{{ $person->email }}</dd>
                         <dt>{{ __('الهاتف') }}</dt><dd dir="ltr" style="text-align:start">{{ $employee->phone ?? '—' }}</dd>
                         <dt>{{ __('تاريخ التعيين') }}</dt><dd>{{ Labels::date($employee->company_doj ?? null) }}</dd>
+                        <dt>{{ __('نوع الدوام') }}</dt><dd>{{ Labels::schedule(\App\Support\Edata\AttendanceService::ownDays($employee)) }}</dd>
                         <dt>{{ __('الحالة الوظيفية') }}</dt><dd><x-ed.badge :pair="Labels::employment($employee->employment_status ?? 'active')" /></dd>
                         <dt>{{ __('الدخول للنظام') }}</dt>
                         <dd>

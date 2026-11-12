@@ -751,3 +751,8 @@ a.ed-alert:hover { filter: brightness(.97); }
 
 /* Roles matrix: heading row before the employee services */
 .ed-matrix tr.ed-matrix__group th { background: var(--surface-2, #F2F7F7); color: var(--teal, #01485A); font-weight: 700; text-align: start; padding: 10px 14px; font-size: 13px; }
+
+/* Employee form: full or part time, days appear only for part time */
+.ed-worktype { display: grid; gap: 10px; }
+.ed-worktype__days { display: none; gap: 6px; padding: 12px; border: 1px dashed var(--line-strong); border-radius: 12px; }
+.ed-worktype:has(input[value=part]:checked) .ed-worktype__days { display: grid; }

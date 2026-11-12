@@ -411,6 +411,9 @@ class PeopleController extends BaseController
             'designation_id' => ['nullable', 'integer', Rule::exists('designations', 'id')->where('created_by', $company)],
             'company_doj' => 'nullable|date',
             'employment_status' => ['required', Rule::in(array_keys(Labels::EMPLOYMENT_STATUSES))],
+            'work_type' => ['nullable', Rule::in(['full', 'part'])],
+            'work_days' => ['nullable', 'array', 'required_if:work_type,part'],
+            'work_days.*' => 'integer|between:0,6',
             'password' => $person ? 'nullable' : ['nullable', 'confirmed', Password::min(8)],
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ], [], [
@@ -422,6 +425,8 @@ class PeopleController extends BaseController
             'designation_id' => 'المسمى الوظيفي',
             'company_doj' => 'تاريخ التعيين',
             'employment_status' => 'الحالة الوظيفية',
+            'work_type' => 'نوع الدوام',
+            'work_days' => 'أيام الدوام الجزئي',
             'password' => 'كلمة المرور',
             'avatar' => 'الصورة الشخصية',
         ]);
@@ -434,6 +439,11 @@ class PeopleController extends BaseController
         $employee->designation_id = (int) ($data['designation_id'] ?? 0);
         $employee->company_doj = $data['company_doj'] ?? null;
         $employee->employment_status = $data['employment_status'];
+        if (array_key_exists('work_type', $data)) {
+            $days = array_values(array_unique(array_map('intval', $data['work_days'] ?? [])));
+            sort($days);
+            $employee->edata_work_days = ($data['work_type'] ?? 'full') === 'part' && $days ? implode(',', $days) : null;
+        }
         if (!empty($data['department_id'])) {
             $employee->branch_id = (int) (Department::find($data['department_id'])->branch_id ?? $employee->branch_id);
         }

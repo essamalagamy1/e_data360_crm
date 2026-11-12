@@ -95,7 +95,7 @@ class MeController extends BaseController
             'company' => $company,
             'monthDays' => $monthDays,
             'zone' => $service->rules()['zone'],
-            'rules' => $service->rules(),
+            'rules' => $employee ? $service->rulesFor($employee) : $service->rules(),
             'doneStage' => $done[0] ?? null,
             'journey' => Moments::journey($me, $employee, $doneCount, $company),
             'streak' => $employee ? Moments::onTimeStreak($employee, $company) : 0,

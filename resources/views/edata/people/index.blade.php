@@ -68,6 +68,9 @@
                             <td>
                                 <span class="ed-table__title" style="font-weight:500">{{ $emp ? ($designationNames[$emp->designation_id] ?? '—') : '—' }}</span>
                                 <span class="ed-table__sub">{{ $emp ? ($departmentNames[$emp->department_id] ?? '') : '' }}</span>
+                                @if ($emp && \App\Support\Edata\AttendanceService::ownDays($emp))
+                                    <span class="ed-table__sub" title="{{ Labels::schedule(\App\Support\Edata\AttendanceService::ownDays($emp)) }}"><i class="ti ti-calendar-week"></i> {{ __('دوام جزئي') }}</span>
+                                @endif
                             </td>
                             <td>{{ $person->type }}</td>
                             <td>
