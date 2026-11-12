@@ -25,6 +25,9 @@
 
     $edCanApprove = \App\Support\Edata\EmployeeServices::canApprove($edMe);
     $edCanDaily = \App\Support\Edata\EmployeeServices::allows($edMe, 'daily');
+    $edCanSuggestions = \App\Support\Edata\EmployeeServices::allows($edMe, 'suggestions');
+    $edCanReviews = \App\Support\Edata\EmployeeServices::allows($edMe, 'reviews');
+    $edNewSuggestions = $edCanSuggestions && \Illuminate\Support\Facades\Schema::hasTable('edata_suggestions') ? \Illuminate\Support\Facades\DB::table('edata_suggestions')->where('company_id', $edCompany)->where('status', 'new')->count() : 0;
     $edPending = $edCanApprove && \Illuminate\Support\Facades\Schema::hasTable('edata_requests') ? \App\Support\Edata\EmployeeServices::pendingCount($edCompany) : 0;
     $edCanAnnounce = Access::isOwner($edMe) || $edMe->can('create announcement') || $edMe->can('manage announcement');
 @endphp
@@ -44,7 +47,7 @@
             <a class="ed-nav {{ $edActive('edata.me.attendance') }}" href="{{ route('edata.me.attendance') }}"><i class="ti ti-clock"></i><span>{{ __('حضوري') }}</span></a>
         @endif
 
-        @if ($edMe->can('manage user') || $edMe->can('manage employee') || $edMe->can('manage attendance') || $edCanApprove || $edCanAnnounce || $edCanDaily)
+        @if ($edMe->can('manage user') || $edMe->can('manage employee') || $edMe->can('manage attendance') || $edCanApprove || $edCanAnnounce || $edCanDaily || $edCanSuggestions || $edCanReviews)
             <div class="ed-side__group">{{ __('الفريق') }}</div>
             @if ($edMe->can('manage user') || $edMe->can('manage employee'))
                 <a class="ed-nav {{ $edActive('edata.people.*') }}" href="{{ route('edata.people.index') }}"><i class="ti ti-users"></i><span>{{ __('الموظفون') }}</span></a>
@@ -63,6 +66,15 @@
             @endif
             @if ($edCanAnnounce)
                 <a class="ed-nav {{ $edActive('edata.announcements.*') }}" href="{{ route('edata.announcements.index') }}"><i class="ti ti-speakerphone"></i><span>{{ __('الإعلانات') }}</span></a>
+            @endif
+            @if ($edCanSuggestions)
+                <a class="ed-nav {{ $edActive('edata.suggestions.*') }}" href="{{ route('edata.suggestions.index') }}">
+                    <i class="ti ti-bulb"></i><span>{{ __('الاقتراحات') }}</span>
+                    @if ($edNewSuggestions > 0)<b class="ed-nav__count" title="{{ __('اقتراحات جديدة') }}">{{ $edNewSuggestions }}</b>@endif
+                </a>
+            @endif
+            @if ($edCanReviews)
+                <a class="ed-nav {{ $edActive('edata.reviews.*') }}" href="{{ route('edata.reviews.index') }}"><i class="ti ti-star"></i><span>{{ __('التقييم الشهري') }}</span></a>
             @endif
         @endif
 

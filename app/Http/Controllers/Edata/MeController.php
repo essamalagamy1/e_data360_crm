@@ -71,6 +71,8 @@ class MeController extends BaseController
 
         return view('edata.me.index', [
             'can' => $can,
+            'mySuggestions' => $can['suggest'] ? DB::table('edata_suggestions')->where('user_id', $me->id)->orderByDesc('id')->limit(5)->get() : collect(),
+            'myReview' => $employee && $can['review'] ? DB::table('edata_reviews')->where('employee_id', $employee->id)->orderByDesc('month')->first() : null,
             'leaveBalances' => $employee ? EmployeeServices::leaveBalances($employee, $company, $now) : collect(),
             'myRequests' => $employee ? EmployeeServices::myRequests($employee) : collect(),
             'dayLog' => $dayLog,

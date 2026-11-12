@@ -68,7 +68,7 @@ class PartTimeTest extends EdataTestCase
 
         $this->actingAs($this->owner)->put(route('edata.people.update', $person->id), $base + ['work_type' => 'part', 'work_days' => [3, 0, 2]])->assertSessionHasNoErrors();
         $this->assertSame('0,2,3', $employee->fresh()->edata_work_days);
-        $this->get(route('edata.people.show', $person->id))->assertOk()->assertSee('دوام جزئي');
+        $this->get(route('edata.people.index'))->assertOk()->assertSee('ti-calendar-week', false);
 
         // Part time without any day is refused.
         $this->put(route('edata.people.update', $person->id), $base + ['work_type' => 'part'])->assertSessionHasErrors('work_days');

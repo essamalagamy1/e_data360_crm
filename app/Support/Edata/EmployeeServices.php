@@ -35,6 +35,10 @@ class EmployeeServices
         'timer' => 'use task timer',
         'summary' => 'view month summary',
         'daily' => 'view daily report',
+        'suggest' => 'send suggestion',
+        'review' => 'view my review',
+        'suggestions' => 'manage suggestion',
+        'reviews' => 'manage review',
     ];
 
     public static function allows(User $user, string $feature): bool

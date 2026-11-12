@@ -126,6 +126,10 @@
                 </div>
             </section>
 
+            @if ($myReview)
+                @include('edata.me._review')
+            @endif
+
             @if ($can['summary'])
                 @include('edata.me._month')
             @endif
@@ -163,6 +167,10 @@
 
             @if ($employee && $can['requests'])
                 @include('edata.me._requests')
+            @endif
+
+            @if ($can['suggest'])
+                @include('edata.me._suggest')
             @endif
 
             <section class="ed-panel" id="kudos">

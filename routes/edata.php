@@ -5,6 +5,7 @@ use App\Http\Controllers\Edata\AuditLogController;
 use App\Http\Controllers\Edata\ClientController;
 use App\Http\Controllers\Edata\DashboardController;
 use App\Http\Controllers\Edata\EmployeeServicesController;
+use App\Http\Controllers\Edata\FeedbackController;
 use App\Http\Controllers\Edata\InvoiceController;
 use App\Http\Controllers\Edata\KudosController;
 use App\Http\Controllers\Edata\LegacyRedirectController;
@@ -72,6 +73,13 @@ Route::middleware(['auth', 'verified', 'XSS', 'revalidate'])->group(function () 
     Route::get('announcements', [TeamDeskController::class, 'announcements'])->name('edata.announcements.index');
     Route::post('announcements', [TeamDeskController::class, 'storeAnnouncement'])->name('edata.announcements.store');
     Route::post('announcements/{announcement}/archive', [TeamDeskController::class, 'archiveAnnouncement'])->whereNumber('announcement')->name('edata.announcements.archive');
+
+    // Suggestion box and monthly review
+    Route::post('my/suggestions', [FeedbackController::class, 'storeSuggestion'])->middleware('throttle:10,1')->name('edata.suggestions.store');
+    Route::get('suggestions', [FeedbackController::class, 'suggestions'])->name('edata.suggestions.index');
+    Route::post('suggestions/{suggestion}', [FeedbackController::class, 'answerSuggestion'])->whereNumber('suggestion')->name('edata.suggestions.answer');
+    Route::get('reviews', [FeedbackController::class, 'reviews'])->name('edata.reviews.index');
+    Route::post('reviews/{employee}', [FeedbackController::class, 'saveReview'])->whereNumber('employee')->name('edata.reviews.save');
 
     // Attendance
     Route::get('attendance', [AttendanceController::class, 'index'])->name('edata.attendance.index');
