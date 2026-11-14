@@ -76,6 +76,21 @@
                         </div>
                     </div>
                 </x-ed.field>
+                @if ($leaveTypes->isNotEmpty())
+                    <x-ed.field :label="__('رصيد الإجازات في السنة')" full :hint="__('عدد أيام كل نوع لهذا الموظف. اتركه فارغاً ليتبع الافتراضي، واكتب 0 لإجازة بدون حد.')">
+                        <div class="ed-allowances">
+                            @foreach ($leaveTypes as $type)
+                                @php $current = old('allowance.' . $type->id, isset($allowances[$type->id]) ? \App\Support\Edata\EmployeeServices::days((float) $allowances[$type->id]) : ''); @endphp
+                                <label class="ed-allowance">
+                                    <span>{{ $type->title }}</span>
+                                    <input class="ed-input ed-num" type="number" step="0.5" min="0" max="365" name="allowance[{{ $type->id }}]" value="{{ $current }}" placeholder="{{ (int) $type->days > 0 ? $type->days : __('بدون حد') }}" aria-label="{{ __('عدد أيام') }} {{ $type->title }}">
+                                    <small>{{ __('يوم') }}</small>
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('allowance.*')<span class="ed-error" role="alert">{{ $message }}</span>@enderror
+                    </x-ed.field>
+                @endif
                 <x-ed.field :label="__('الصورة الشخصية')" name="avatar" full :hint="__('JPG أو PNG أو WEBP، حتى 2 ميجابايت.')">
                     <input class="ed-input" style="padding-block:8px" type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp">
                 </x-ed.field>

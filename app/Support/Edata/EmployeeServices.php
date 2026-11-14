@@ -10,6 +10,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * The employee's requests, daily plan, announcements, task timers and monthly
@@ -54,24 +55,54 @@ class EmployeeServices
         return $requests + $leaves;
     }
 
-    /** Leave types with what is left this year. A type with no day limit shows no balance. */
+    /**
+     * Leave types with this year's allowance, what was taken, what waits for a reply
+     * and what is left. The employee's own allowance wins over the type's default;
+     * an allowance of 0 days means no limit and shows no balance.
+     */
     public static function leaveBalances(Employee $employee, int $company, Carbon $today): Collection
     {
         $types = DB::table('leave_types')->where('created_by', $company)->orderBy('title')->get(['id', 'title', 'days']);
-        $used = Leave::where('employee_id', $employee->id)
-            ->where('status', 'Approved')
+        $own = Schema::hasTable('edata_leave_allowances')
+            ? DB::table('edata_leave_allowances')->where('employee_id', $employee->id)->pluck('days', 'leave_type_id')
+            : collect();
+        $sum = fn (string $status) => Leave::where('employee_id', $employee->id)
+            ->where('status', $status)
             ->whereYear('start_date', $today->year)
             ->get()
             ->groupBy('leave_type_id')
             ->map(fn ($rows) => $rows->sum(fn ($r) => (float) $r->total_leave_days));
+        $used = $sum('Approved');
+        $pending = $sum('Pending');
 
-        return $types->map(fn ($type) => (object) [
-            'id' => $type->id,
-            'title' => $type->title,
-            'days' => (int) $type->days,
-            'used' => (float) ($used[$type->id] ?? 0),
-            'left' => (int) $type->days > 0 ? max(0, (int) $type->days - (float) ($used[$type->id] ?? 0)) : null,
-        ]);
+        return $types->map(function ($type) use ($own, $used, $pending) {
+            $custom = isset($own[$type->id]);
+            $days = (float) ($custom ? $own[$type->id] : $type->days);
+            $taken = (float) ($used[$type->id] ?? 0);
+
+            return (object) [
+                'id' => $type->id,
+                'title' => $type->title,
+                'days' => $days,
+                'default' => (int) $type->days,
+                'custom' => $custom,
+                'used' => $taken,
+                'pending' => (float) ($pending[$type->id] ?? 0),
+                'left' => $days > 0 ? max(0, $days - $taken) : null,
+            ];
+        });
+    }
+
+    /** The company's leave terms, shown when someone asks for leave. */
+    public static function leaveTerms(int $company): string
+    {
+        return trim((string) (Fmt::settings($company)['edata_leave_terms'] ?? ''));
+    }
+
+    /** 21.0 → "21", 2.5 → "2.5". */
+    public static function days(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 1, '.', ''), '0'), '.');
     }
 
     /** The employee's own recent requests of every kind, newest first. */

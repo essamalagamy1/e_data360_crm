@@ -119,6 +119,30 @@
                     </dl>
                 </div>
             </section>
+            @if ($leaveBalances->isNotEmpty())
+                <section class="ed-panel">
+                    <div class="ed-panel__head"><h2>{{ __('رصيد الإجازات') }}</h2><span class="ed-hint ed-num">{{ now()->year }}</span></div>
+                    <div class="ed-leavebal">
+                        @foreach ($leaveBalances as $bal)
+                            <div class="ed-leavebal__row">
+                                <b>{{ $bal->title }}</b>
+                                @if ($bal->left !== null)
+                                    <div class="ed-leavebal__nums ed-num">
+                                        <span>{{ __('الرصيد') }} <b>{{ \App\Support\Edata\EmployeeServices::days($bal->days) }}</b></span>
+                                        <span>{{ __('أخذ') }} <b>{{ \App\Support\Edata\EmployeeServices::days($bal->used) }}</b></span>
+                                        <span>{{ __('المتبقي') }} <b class="{{ $bal->left <= 0 ? 'tone-text-bad' : 'tone-text-good' }}">{{ \App\Support\Edata\EmployeeServices::days($bal->left) }}</b></span>
+                                    </div>
+                                    <div class="ed-progress {{ $bal->left <= 0 ? 'is-bad' : 'is-good' }}"><i style="--v: {{ $bal->days > 0 ? min(100, round($bal->used / $bal->days * 100)) : 0 }}%"></i></div>
+                                    @if ($bal->pending > 0)<span class="ed-hint">{{ \App\Support\Edata\EmployeeServices::days($bal->pending) }} {{ __('يوم في طلبات قيد المراجعة') }}</span>@endif
+                                @else
+                                    <span class="ed-hint">{{ __('بدون حد') }}، {{ __('أخذ') }} {{ \App\Support\Edata\EmployeeServices::days($bal->used) }} {{ __('يوم') }}</span>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                    @if ($canEdit)<div class="ed-panel__body" style="padding-top:0"><a class="ed-link" href="{{ route('edata.people.edit', $person->id) }}">{{ __('تعديل الرصيد') }}</a></div>@endif
+                </section>
+            @endif
             <section class="ed-panel">
                 <div class="ed-panel__head"><h2>{{ __('آخر الأنشطة') }}</h2></div>
                 <x-ed.trail :logs="$activity" :with-diff="false" />

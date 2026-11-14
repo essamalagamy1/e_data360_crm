@@ -40,14 +40,26 @@ class EmployeeServicesController extends BaseController
         $employee = $this->myEmployee();
         $company = $this->companyId();
 
+        $terms = EmployeeServices::leaveTerms($company);
         $data = $request->validate([
             'leave_type_id' => ['required', 'integer', Rule::exists('leave_types', 'id')->where('created_by', $company)],
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'reason' => 'required|string|min:3|max:250',
-        ], [], ['leave_type_id' => 'نوع الإجازة', 'start_date' => 'من', 'end_date' => 'إلى', 'reason' => 'السبب']);
+            'accept_terms' => $terms !== '' ? 'accepted' : 'nullable',
+        ], ['accept_terms.accepted' => 'يجب الموافقة على شروط الإجازات قبل إرسال الطلب.'], ['leave_type_id' => 'نوع الإجازة', 'start_date' => 'من', 'end_date' => 'إلى', 'reason' => 'السبب']);
 
         $days = Carbon::parse($data['start_date'])->diffInDays(Carbon::parse($data['end_date'])) + 1;
+
+        // The request cannot go past what is left of this year's allowance, counting
+        // requests that still wait for a reply.
+        $balance = EmployeeServices::leaveBalances($employee, $company, Carbon::parse($data['start_date']))->firstWhere('id', (int) $data['leave_type_id']);
+        if ($balance && $balance->left !== null) {
+            $free = max(0, $balance->left - $balance->pending);
+            if ($days > $free) {
+                return back()->withInput()->withErrors(['start_date' => 'رصيدك المتاح من «' . $balance->title . '» هو ' . EmployeeServices::days($free) . ' يوم' . ($balance->pending > 0 ? ' (بعد خصم ' . EmployeeServices::days($balance->pending) . ' يوم في طلبات قيد المراجعة)' : '') . '، والطلب ' . $days . ' يوم.']);
+            }
+        }
 
         Leave::create([
             'employee_id' => $employee->id,

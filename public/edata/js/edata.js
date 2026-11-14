@@ -199,6 +199,20 @@
     }
     document.addEventListener('submit', function (event) {
         var form = event.target;
+        // Disabled buttons and form.submit() both leave out the pressed button, so its
+        // value (approve / reject and the like) is copied into a hidden field first.
+        var pressed = event.submitter;
+        if (pressed && pressed.name && pressed !== form) {
+            var carry = form.querySelector('input[type="hidden"][data-ed-submitter]');
+            if (!carry) {
+                carry = document.createElement('input');
+                carry.type = 'hidden';
+                carry.setAttribute('data-ed-submitter', '');
+                form.appendChild(carry);
+            }
+            carry.name = pressed.name;
+            carry.value = pressed.value;
+        }
         if (form.dataset.confirm && form.dataset.confirmed !== '1') {
             event.preventDefault();
             askConfirm(form, form);

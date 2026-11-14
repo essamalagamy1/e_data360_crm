@@ -44,6 +44,8 @@ class TeamDeskController extends BaseController
             'employees' => $employees,
             'status' => $status,
             'pending' => EmployeeServices::pendingCount($company),
+            'terms' => EmployeeServices::leaveTerms($company),
+            'company' => $company,
         ]);
     }
 
@@ -101,6 +103,54 @@ class TeamDeskController extends BaseController
         $this->tellEmployee((int) $row->employee_id, $approve ? 'تمت الموافقة على طلب ' . $what : 'تم رفض طلب ' . $what, $data['note'] ?? null);
 
         return $this->done($approve ? 'تمت الموافقة على الطلب.' : 'تم رفض الطلب.');
+    }
+
+    /** Removes a leave or attendance request for good, keeping its details in the activity log. */
+    public function destroyRequest(string $type, int $id)
+    {
+        $me = $this->me();
+        abort_unless(EmployeeServices::canApprove($me), 403);
+        $company = $this->companyId();
+        $scope = Access::employees($me)->pluck('employees.id');
+
+        if ($type === 'leave') {
+            $leave = Leave::where('created_by', $company)->whereIn('employee_id', $scope)->findOrFail($id);
+            $name = Employee::whereKey($leave->employee_id)->value('name');
+            Audit::record('deleted', 'attendance', $leave->id, 'طلب إجازة: ' . $name, [
+                'من' => (string) $leave->start_date, 'إلى' => (string) $leave->end_date, 'الأيام' => (string) $leave->total_leave_days,
+                'الحالة' => (string) $leave->status, 'السبب' => (string) $leave->leave_reason,
+            ], null);
+            $leave->delete();
+
+            return $this->done('تم حذف طلب الإجازة.');
+        }
+
+        $row = DB::table('edata_requests')->where('company_id', $company)->whereIn('employee_id', $scope)->where('id', $id)->first();
+        abort_unless($row, 404);
+        $name = Employee::whereKey($row->employee_id)->value('name');
+        Audit::record('deleted', 'attendance', $row->id, ($row->kind === 'correction' ? 'طلب تصحيح: ' : 'طلب إذن: ') . $name, [
+            'التاريخ' => (string) $row->date, 'من' => (string) $row->time_from, 'إلى' => (string) $row->time_to,
+            'الحالة' => (string) $row->status, 'السبب' => (string) $row->reason,
+        ], null);
+        DB::table('edata_requests')->where('id', $row->id)->delete();
+
+        return $this->done('تم حذف الطلب.');
+    }
+
+    /** The leave terms every employee sees, and must accept, before asking for leave. */
+    public function saveLeaveTerms(Request $request)
+    {
+        $me = $this->me();
+        abort_unless(EmployeeServices::canApprove($me), 403);
+        $company = $this->companyId();
+        $data = $request->validate(['terms' => 'nullable|string|max:4000'], [], ['terms' => 'شروط الإجازات']);
+        $terms = trim((string) ($data['terms'] ?? ''));
+
+        DB::table('settings')->updateOrInsert(['name' => 'edata_leave_terms', 'created_by' => $company], ['value' => $terms, 'updated_at' => now(), 'created_at' => now()]);
+        \App\Support\Edata\Fmt::flush();
+        Audit::record('updated', 'settings', null, 'شروط الإجازات', null, ['الشروط' => $terms === '' ? 'بدون شروط' : $terms]);
+
+        return $this->done($terms === '' ? 'تم حذف الشروط. لن تظهر للموظفين.' : 'تم حفظ الشروط، وستظهر لكل موظف عند طلب إجازة.');
     }
 
     private function tellEmployee(int $employeeId, string $title, ?string $note): void

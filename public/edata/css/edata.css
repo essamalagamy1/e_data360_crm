@@ -791,3 +791,24 @@ a.ed-alert:hover { filter: brightness(.97); }
 .ed-starpick input:focus-visible + label { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 4px; }
 .ed-starpick label:active { transform: scale(.9); }
 @media (max-width: 1100px) { .ed-reviewcard { grid-template-columns: 1fr; } }
+
+/* Leave terms (requests page) and on the employee's leave form */
+.ed-terms { margin-bottom: 16px; }
+.ed-terms__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; cursor: pointer; font-weight: 700; list-style: none; }
+.ed-terms__head::-webkit-details-marker { display: none; }
+.ed-terms__head > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.ed-terms__head i { color: var(--teal); }
+.ed-terms[open] .ed-terms__head { border-bottom: 1px solid var(--line); }
+.ed-leaveterms { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface-2); }
+.ed-leaveterms b { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; }
+.ed-leaveterms p { margin: 0; font-size: 13px; color: var(--text-2); line-height: 1.8; max-height: 160px; overflow: auto; }
+.ed-reqcard__bal { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--text-2); }
+
+/* Leave allowance per employee */
+.ed-allowances { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.ed-allowance { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); font-size: 13px; }
+.ed-allowance small { color: var(--text-3); }
+.ed-leavebal { display: grid; gap: 14px; padding: 14px 18px 16px; }
+.ed-leavebal__row { display: grid; gap: 6px; }
+.ed-leavebal__nums { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--text-2); }
+.ed-leavebal__nums b { color: var(--text); }

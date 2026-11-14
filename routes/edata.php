@@ -69,6 +69,8 @@ Route::middleware(['auth', 'verified', 'XSS', 'revalidate'])->group(function () 
     // Team desk: approvals, daily reports, announcements
     Route::get('requests', [TeamDeskController::class, 'requests'])->name('edata.requests.index');
     Route::post('requests/{type}/{id}', [TeamDeskController::class, 'decide'])->where('type', 'leave|request')->whereNumber('id')->name('edata.requests.decide');
+    Route::delete('requests/{type}/{id}', [TeamDeskController::class, 'destroyRequest'])->where('type', 'leave|request')->whereNumber('id')->name('edata.requests.destroy');
+    Route::post('requests/leave-terms', [TeamDeskController::class, 'saveLeaveTerms'])->name('edata.requests.terms');
     Route::get('daily-reports', [TeamDeskController::class, 'daily'])->name('edata.daily.index');
     Route::get('announcements', [TeamDeskController::class, 'announcements'])->name('edata.announcements.index');
     Route::post('announcements', [TeamDeskController::class, 'storeAnnouncement'])->name('edata.announcements.store');

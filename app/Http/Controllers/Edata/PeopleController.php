@@ -134,6 +134,7 @@ class PeopleController extends BaseController
             Utility::employeeDetails($user->id, $company);
             $employee = Employee::where('user_id', $user->id)->first();
             $this->fillEmployee($employee, $data);
+            $this->saveAllowances($employee, $data);
 
             $this->storeAvatar($request, $user);
 
@@ -196,6 +197,7 @@ class PeopleController extends BaseController
             'projects' => $projects,
             'activity' => $activity,
             'company' => $company,
+            'leaveBalances' => $employee ? \App\Support\Edata\EmployeeServices::leaveBalances($employee, $company, Carbon::now(\App\Support\Edata\Fmt::timezone($company))) : collect(),
             'canEdit' => $me->can('edit user') && !Access::isOwner($person),
             'isSelf' => $person->id === $me->id,
         ]);
@@ -234,6 +236,7 @@ class PeopleController extends BaseController
             $employee->name = $data['name'];
             $employee->email = $data['email'];
             $this->fillEmployee($employee, $data);
+            $this->saveAllowances($employee, $data);
             $this->storeAvatar($request, $person);
         });
 
@@ -395,6 +398,10 @@ class PeopleController extends BaseController
             'departments' => Department::where('created_by', $company)->orderBy('name')->get(['id', 'name']),
             'designations' => Designation::where('created_by', $company)->orderBy('name')->get(['id', 'name', 'department_id']),
             'statuses' => Labels::EMPLOYMENT_STATUSES,
+            'leaveTypes' => DB::table('leave_types')->where('created_by', $company)->orderBy('title')->get(['id', 'title', 'days']),
+            'allowances' => $employee && \Illuminate\Support\Facades\Schema::hasTable('edata_leave_allowances')
+                ? DB::table('edata_leave_allowances')->where('employee_id', $employee->id)->pluck('days', 'leave_type_id')
+                : collect(),
         ];
     }
 
@@ -414,6 +421,8 @@ class PeopleController extends BaseController
             'work_type' => ['nullable', Rule::in(['full', 'part'])],
             'work_days' => ['nullable', 'array', 'required_if:work_type,part'],
             'work_days.*' => 'integer|between:0,6',
+            'allowance' => 'nullable|array',
+            'allowance.*' => 'nullable|numeric|min:0|max:365',
             'password' => $person ? 'nullable' : ['nullable', 'confirmed', Password::min(8)],
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ], [], [
@@ -427,9 +436,31 @@ class PeopleController extends BaseController
             'employment_status' => 'الحالة الوظيفية',
             'work_type' => 'نوع الدوام',
             'work_days' => 'أيام الدوام الجزئي',
+            'allowance.*' => 'رصيد الإجازة',
             'password' => 'كلمة المرور',
             'avatar' => 'الصورة الشخصية',
         ]);
+    }
+
+    /** The employee's own yearly days per leave type. An empty box goes back to the type's default. */
+    private function saveAllowances(Employee $employee, array $data): void
+    {
+        if (!array_key_exists('allowance', $data) || !\Illuminate\Support\Facades\Schema::hasTable('edata_leave_allowances')) {
+            return;
+        }
+        $company = $this->companyId();
+        $types = DB::table('leave_types')->where('created_by', $company)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        foreach ((array) $data['allowance'] as $typeId => $days) {
+            if (!in_array((int) $typeId, $types, true)) {
+                continue;
+            }
+            $key = ['employee_id' => $employee->id, 'leave_type_id' => (int) $typeId];
+            if ($days === null || $days === '') {
+                DB::table('edata_leave_allowances')->where($key)->delete();
+            } else {
+                DB::table('edata_leave_allowances')->updateOrInsert($key, ['company_id' => $company, 'days' => round((float) $days, 1), 'updated_at' => now(), 'created_at' => now()]);
+            }
+        }
     }
 
     private function fillEmployee(Employee $employee, array $data): void

@@ -20,7 +20,7 @@
             <x-ed.field :label="__('نوع الإجازة')" name="leave_type_id" required full>
                 <select class="ed-select" id="leave_type_id" name="leave_type_id" required>
                     @foreach ($leaveBalances as $type)
-                        <option value="{{ $type->id }}" @selected((int) old('leave_type_id') === (int) $type->id)>{{ $type->title }}@if ($type->left !== null) ({{ __('المتبقي') }}: {{ rtrim(rtrim(number_format($type->left, 1), '0'), '.') }} {{ __('يوم') }})@endif</option>
+                        <option value="{{ $type->id }}" @selected((int) old('leave_type_id') === (int) $type->id)>{{ $type->title }}@if ($type->left !== null) ({{ __('المتبقي') }}: {{ \App\Support\Edata\EmployeeServices::days($type->left) }} {{ __('يوم') }})@endif</option>
                     @endforeach
                 </select>
             </x-ed.field>
@@ -33,6 +33,14 @@
             <x-ed.field :label="__('السبب')" name="reason" required full>
                 <input class="ed-input" id="reason" name="reason" maxlength="250" value="{{ old('req_kind') === 'leave' ? old('reason') : '' }}" required>
             </x-ed.field>
+            @if ($leaveTerms !== '')
+                <div class="ed-field--full ed-leaveterms">
+                    <b><i class="ti ti-file-certificate"></i>{{ __('شروط الإجازات') }}</b>
+                    <p>{!! nl2br(e($leaveTerms)) !!}</p>
+                    <label class="ed-check"><input type="checkbox" name="accept_terms" value="1" required @checked(old('accept_terms'))> {{ __('قرأت الشروط وأوافق عليها') }}</label>
+                    @error('accept_terms')<span class="ed-error" role="alert">{{ $message }}</span>@enderror
+                </div>
+            @endif
             <div class="ed-field--full"><button type="submit" class="ed-btn ed-btn--primary ed-btn--sm"><i class="ti ti-send"></i>{{ __('إرسال الطلب') }}</button></div>
         </form>
 
@@ -79,8 +87,8 @@
             @foreach ($limited as $type)
                 <div class="ed-balance">
                     <span>{{ $type->title }}</span>
-                    <b class="ed-num">{{ rtrim(rtrim(number_format($type->left, 1), '0'), '.') }}</b>
-                    <small>{{ __('من') }} {{ $type->days }} {{ __('يوم متبقٍ هذا العام') }}</small>
+                    <b class="ed-num">{{ \App\Support\Edata\EmployeeServices::days($type->left) }}</b>
+                    <small>{{ __('من') }} {{ \App\Support\Edata\EmployeeServices::days($type->days) }} {{ __('يوم متبقٍ هذا العام') }}@if ($type->pending > 0) · {{ \App\Support\Edata\EmployeeServices::days($type->pending) }} {{ __('قيد المراجعة') }}@endif</small>
                 </div>
             @endforeach
         </div>
