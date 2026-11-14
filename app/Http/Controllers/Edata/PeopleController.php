@@ -402,6 +402,9 @@ class PeopleController extends BaseController
             'allowances' => $employee && \Illuminate\Support\Facades\Schema::hasTable('edata_leave_allowances')
                 ? DB::table('edata_leave_allowances')->where('employee_id', $employee->id)->pluck('days', 'leave_type_id')
                 : collect(),
+            'formBalances' => $employee
+                ? \App\Support\Edata\EmployeeServices::leaveBalances($employee, $company, Carbon::now(\App\Support\Edata\Fmt::timezone($company)))->keyBy('id')
+                : collect(),
         ];
     }
 
@@ -423,6 +426,9 @@ class PeopleController extends BaseController
             'work_days.*' => 'integer|between:0,6',
             'allowance' => 'nullable|array',
             'allowance.*' => 'nullable|numeric|min:0|max:365',
+            'remaining' => 'nullable|array',
+            'remaining.*' => 'nullable|numeric|min:0|max:365',
+            'remaining_was' => 'nullable|array',
             'password' => $person ? 'nullable' : ['nullable', 'confirmed', Password::min(8)],
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ], [], [
@@ -437,29 +443,70 @@ class PeopleController extends BaseController
             'work_type' => 'نوع الدوام',
             'work_days' => 'أيام الدوام الجزئي',
             'allowance.*' => 'رصيد الإجازة',
+            'remaining.*' => 'المتبقي الآن',
             'password' => 'كلمة المرور',
             'avatar' => 'الصورة الشخصية',
         ]);
     }
 
-    /** The employee's own yearly days per leave type. An empty box goes back to the type's default. */
+    /**
+     * The employee's own yearly days per leave type, and what is left today.
+     * An empty allowance box goes back to the type's default. When the manager
+     * changes «what is left», the difference from this year's allowance is kept
+     * as leave taken before the system (negative means extra days).
+     */
     private function saveAllowances(Employee $employee, array $data): void
     {
         if (!array_key_exists('allowance', $data) || !\Illuminate\Support\Facades\Schema::hasTable('edata_leave_allowances')) {
             return;
         }
         $company = $this->companyId();
-        $types = DB::table('leave_types')->where('created_by', $company)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $year = (int) Carbon::now(\App\Support\Edata\Fmt::timezone($company))->year;
+        $balances = \App\Support\Edata\EmployeeServices::leaveBalances($employee, $company, Carbon::now(\App\Support\Edata\Fmt::timezone($company)))->keyBy('id');
+        $remaining = (array) ($data['remaining'] ?? []);
+        $was = (array) ($data['remaining_was'] ?? []);
+
         foreach ((array) $data['allowance'] as $typeId => $days) {
-            if (!in_array((int) $typeId, $types, true)) {
+            $typeId = (int) $typeId;
+            $balance = $balances[$typeId] ?? null;
+            if (!$balance) {
                 continue;
             }
-            $key = ['employee_id' => $employee->id, 'leave_type_id' => (int) $typeId];
-            if ($days === null || $days === '') {
+            $key = ['employee_id' => $employee->id, 'leave_type_id' => $typeId];
+            $current = DB::table('edata_leave_allowances')->where($key)->first();
+            $left = $remaining[$typeId] ?? null;
+            $leftChanged = $left !== null && $left !== '' && (string) $left !== (string) ($was[$typeId] ?? '');
+            $daysGiven = $days !== null && $days !== '';
+
+            if (!$daysGiven && !$leftChanged) {
                 DB::table('edata_leave_allowances')->where($key)->delete();
-            } else {
-                DB::table('edata_leave_allowances')->updateOrInsert($key, ['company_id' => $company, 'days' => round((float) $days, 1), 'updated_at' => now(), 'created_at' => now()]);
+                continue;
             }
+
+            $total = $daysGiven ? round((float) $days, 1) : (float) $balance->default;
+            $opening = ($current && (int) ($current->opening_year ?? 0) === $year) ? (float) $current->opening_used : 0.0;
+
+            if ($leftChanged) {
+                $wanted = round((float) $left, 1);
+                if ($total <= 0) {
+                    // No yearly limit yet: the allowance becomes what is left plus what was taken here.
+                    $total = $wanted + $balance->in_system;
+                    $opening = 0.0;
+                } else {
+                    $opening = round($total - $balance->in_system - $wanted, 1);
+                }
+            } elseif ($total <= 0) {
+                $opening = 0.0;
+            }
+
+            DB::table('edata_leave_allowances')->updateOrInsert($key, [
+                'company_id' => $company,
+                'days' => $total,
+                'opening_used' => $opening,
+                'opening_year' => $opening != 0 ? $year : null,
+                'updated_at' => now(),
+                'created_at' => $current->created_at ?? now(),
+            ]);
         }
     }
 

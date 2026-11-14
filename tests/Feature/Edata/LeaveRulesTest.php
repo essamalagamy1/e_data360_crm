@@ -95,6 +95,32 @@ class LeaveRulesTest extends EdataTestCase
         $this->assertEquals(2, $balance->left);
         $this->get(route('edata.people.show', $user->id))->assertOk()->assertSee('ed-leavebal', false);
 
+        // The manager types what is really left (leave was taken before the system).
+        // Allowance 5, 3 taken here, says 1 left → 1 day counted as taken before.
+        $type = $this->type();
+        $this->put(route('edata.people.update', $user->id), $base + ['allowance' => [$type => '5'], 'remaining' => [$type => '1'], 'remaining_was' => [$type => '2']])->assertSessionHasNoErrors();
+        $balance = \App\Support\Edata\EmployeeServices::leaveBalances($employee, $this->company, Carbon::now())->firstWhere('id', $type);
+        $this->assertEquals(1, $balance->left);
+        $this->assertEquals(1, $balance->before);
+        $this->assertEquals(3, $balance->in_system);
+
+        // Raising the yearly days with «left now» untouched keeps what was taken before.
+        $this->put(route('edata.people.update', $user->id), $base + ['allowance' => [$type => '8'], 'remaining' => [$type => '1'], 'remaining_was' => [$type => '1']])->assertSessionHasNoErrors();
+        $this->assertEquals(4, \App\Support\Edata\EmployeeServices::leaveBalances($employee, $this->company, Carbon::now())->firstWhere('id', $type)->left);
+
+        // More left than the allowance allows: the extra days are kept as a bonus.
+        $this->put(route('edata.people.update', $user->id), $base + ['allowance' => [$type => '8'], 'remaining' => [$type => '10'], 'remaining_was' => [$type => '4']])->assertSessionHasNoErrors();
+        $balance = \App\Support\Edata\EmployeeServices::leaveBalances($employee, $this->company, Carbon::now())->firstWhere('id', $type);
+        $this->assertEquals(10, $balance->left);
+        $this->assertEquals(-5, $balance->before);
+
+        // No yearly limit yet: typing what is left sets the allowance from it.
+        $this->put(route('edata.people.update', $user->id), $base + ['allowance' => [$type => ''], 'remaining' => [$type => '7'], 'remaining_was' => [$type => '']])->assertSessionHasNoErrors();
+        $balance = \App\Support\Edata\EmployeeServices::leaveBalances($employee, $this->company, Carbon::now())->firstWhere('id', $type);
+        $this->assertEquals(7, $balance->left);
+        $this->assertEquals(10, $balance->days);
+        $this->get(route('edata.people.edit', $user->id))->assertOk()->assertSee('name="remaining[' . $type . ']"', false);
+
         // An empty box goes back to the type's default.
         $this->put(route('edata.people.update', $user->id), $base + ['allowance' => [$this->type() => '']])->assertSessionHasNoErrors();
         $this->assertFalse(DB::table('edata_leave_allowances')->where('employee_id', $employee->id)->exists());

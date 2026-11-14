@@ -805,8 +805,12 @@ a.ed-alert:hover { filter: brightness(.97); }
 .ed-reqcard__bal { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--text-2); }
 
 /* Leave allowance per employee */
-.ed-allowances { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
-.ed-allowance { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); font-size: 13px; }
+.ed-allowances { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.ed-allowance { display: grid; grid-template-columns: 1fr 1fr; align-items: end; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); font-size: 13px; }
+.ed-allowance > b { grid-column: 1 / -1; font-size: 13.5px; }
+.ed-allowance label { display: grid; gap: 4px; }
+.ed-allowance label span { font-size: 12px; color: var(--text-2); }
+.ed-allowance__note { grid-column: 1 / -1; color: var(--text-3); font-size: 12px; }
 .ed-allowance small { color: var(--text-3); }
 .ed-leavebal { display: grid; gap: 14px; padding: 14px 18px 16px; }
 .ed-leavebal__row { display: grid; gap: 6px; }

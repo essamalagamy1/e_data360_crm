@@ -63,9 +63,12 @@ class EmployeeServices
     public static function leaveBalances(Employee $employee, int $company, Carbon $today): Collection
     {
         $types = DB::table('leave_types')->where('created_by', $company)->orderBy('title')->get(['id', 'title', 'days']);
-        $own = Schema::hasTable('edata_leave_allowances')
-            ? DB::table('edata_leave_allowances')->where('employee_id', $employee->id)->pluck('days', 'leave_type_id')
+        $rows = Schema::hasTable('edata_leave_allowances')
+            ? DB::table('edata_leave_allowances')->where('employee_id', $employee->id)->get()->keyBy('leave_type_id')
             : collect();
+        $own = $rows->map(fn ($r) => $r->days);
+        // Leave taken before the system, entered by the manager for this year only.
+        $before = $rows->map(fn ($r) => isset($r->opening_year) && (int) $r->opening_year === (int) $today->year ? (float) $r->opening_used : 0.0);
         $sum = fn (string $status) => Leave::where('employee_id', $employee->id)
             ->where('status', $status)
             ->whereYear('start_date', $today->year)
@@ -75,10 +78,12 @@ class EmployeeServices
         $used = $sum('Approved');
         $pending = $sum('Pending');
 
-        return $types->map(function ($type) use ($own, $used, $pending) {
+        return $types->map(function ($type) use ($own, $used, $pending, $before) {
             $custom = isset($own[$type->id]);
             $days = (float) ($custom ? $own[$type->id] : $type->days);
-            $taken = (float) ($used[$type->id] ?? 0);
+            $inSystem = (float) ($used[$type->id] ?? 0);
+            $earlier = (float) ($before[$type->id] ?? 0);
+            $taken = $inSystem + $earlier;
 
             return (object) [
                 'id' => $type->id,
@@ -87,6 +92,8 @@ class EmployeeServices
                 'default' => (int) $type->days,
                 'custom' => $custom,
                 'used' => $taken,
+                'in_system' => $inSystem,
+                'before' => $earlier,
                 'pending' => (float) ($pending[$type->id] ?? 0),
                 'left' => $days > 0 ? max(0, $days - $taken) : null,
             ];

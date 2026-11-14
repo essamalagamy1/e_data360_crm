@@ -77,18 +77,36 @@
                     </div>
                 </x-ed.field>
                 @if ($leaveTypes->isNotEmpty())
-                    <x-ed.field :label="__('رصيد الإجازات في السنة')" full :hint="__('عدد أيام كل نوع لهذا الموظف. اتركه فارغاً ليتبع الافتراضي، واكتب 0 لإجازة بدون حد.')">
+                    <x-ed.field :label="__('رصيد الإجازات')" full :hint="__('«في السنة»: عدد أيام كل نوع لهذا الموظف، فارغ = الافتراضي، و0 = بدون حد. «المتبقي الآن»: اكتب كم يوماً بقي له فعلاً، ويُحسب تلقائياً ما أخذه قبل استخدام النظام.')">
                         <div class="ed-allowances">
                             @foreach ($leaveTypes as $type)
                                 @php $current = old('allowance.' . $type->id, isset($allowances[$type->id]) ? \App\Support\Edata\EmployeeServices::days((float) $allowances[$type->id]) : ''); @endphp
-                                <label class="ed-allowance">
-                                    <span>{{ $type->title }}</span>
-                                    <input class="ed-input ed-num" type="number" step="0.5" min="0" max="365" name="allowance[{{ $type->id }}]" value="{{ $current }}" placeholder="{{ (int) $type->days > 0 ? $type->days : __('بدون حد') }}" aria-label="{{ __('عدد أيام') }} {{ $type->title }}">
-                                    <small>{{ __('يوم') }}</small>
-                                </label>
+                                @php
+                                    $bal = $formBalances[$type->id] ?? null;
+                                    $leftNow = $bal && $bal->left !== null ? \App\Support\Edata\EmployeeServices::days($bal->left) : '';
+                                @endphp
+                                <div class="ed-allowance">
+                                    <b>{{ $type->title }}</b>
+                                    <label>
+                                        <span>{{ __('في السنة') }}</span>
+                                        <input class="ed-input ed-num" type="number" step="0.5" min="0" max="365" name="allowance[{{ $type->id }}]" value="{{ $current }}" placeholder="{{ (int) $type->days > 0 ? $type->days : __('بدون حد') }}" aria-label="{{ __('عدد أيام') }} {{ $type->title }}">
+                                    </label>
+                                    <label>
+                                        <span>{{ __('المتبقي الآن') }}</span>
+                                        <input class="ed-input ed-num" type="number" step="0.5" min="0" max="365" name="remaining[{{ $type->id }}]" value="{{ old('remaining.' . $type->id, $leftNow) }}" placeholder="—" aria-label="{{ __('المتبقي الآن') }} {{ $type->title }}">
+                                        <input type="hidden" name="remaining_was[{{ $type->id }}]" value="{{ $leftNow }}">
+                                    </label>
+                                    @if ($bal && ($bal->in_system > 0 || $bal->before != 0))
+                                        <small class="ed-allowance__note">
+                                            @if ($bal->before > 0){{ __('أخذ قبل النظام') }}: {{ \App\Support\Edata\EmployeeServices::days($bal->before) }}@elseif ($bal->before < 0){{ __('أيام إضافية') }}: {{ \App\Support\Edata\EmployeeServices::days(abs($bal->before)) }}@endif
+                                            @if ($bal->in_system > 0) @if ($bal->before != 0) · @endif{{ __('أخذ على النظام') }}: {{ \App\Support\Edata\EmployeeServices::days($bal->in_system) }}@endif
+                                        </small>
+                                    @endif
+                                </div>
                             @endforeach
                         </div>
                         @error('allowance.*')<span class="ed-error" role="alert">{{ $message }}</span>@enderror
+                        @error('remaining.*')<span class="ed-error" role="alert">{{ $message }}</span>@enderror
                     </x-ed.field>
                 @endif
                 <x-ed.field :label="__('الصورة الشخصية')" name="avatar" full :hint="__('JPG أو PNG أو WEBP، حتى 2 ميجابايت.')">

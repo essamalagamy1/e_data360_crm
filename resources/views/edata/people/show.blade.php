@@ -133,6 +133,7 @@
                                         <span>{{ __('المتبقي') }} <b class="{{ $bal->left <= 0 ? 'tone-text-bad' : 'tone-text-good' }}">{{ \App\Support\Edata\EmployeeServices::days($bal->left) }}</b></span>
                                     </div>
                                     <div class="ed-progress {{ $bal->left <= 0 ? 'is-bad' : 'is-good' }}"><i style="--v: {{ $bal->days > 0 ? min(100, round($bal->used / $bal->days * 100)) : 0 }}%"></i></div>
+                                    @if ($bal->before > 0)<span class="ed-hint">{{ __('منها') }} {{ \App\Support\Edata\EmployeeServices::days($bal->before) }} {{ __('يوم قبل استخدام النظام') }}</span>@elseif ($bal->before < 0)<span class="ed-hint">{{ __('شامل') }} {{ \App\Support\Edata\EmployeeServices::days(abs($bal->before)) }} {{ __('يوم إضافية') }}</span>@endif
                                     @if ($bal->pending > 0)<span class="ed-hint">{{ \App\Support\Edata\EmployeeServices::days($bal->pending) }} {{ __('يوم في طلبات قيد المراجعة') }}</span>@endif
                                 @else
                                     <span class="ed-hint">{{ __('بدون حد') }}، {{ __('أخذ') }} {{ \App\Support\Edata\EmployeeServices::days($bal->used) }} {{ __('يوم') }}</span>

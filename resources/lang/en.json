@@ -3834,5 +3834,15 @@
     "رصيد الإجازات": "Leave balance",
     "الرصيد": "Allowance",
     "يوم في طلبات قيد المراجعة": "days in requests awaiting a reply",
-    "تعديل الرصيد": "Edit allowance"
+    "تعديل الرصيد": "Edit allowance",
+    "«في السنة»: عدد أيام كل نوع لهذا الموظف، فارغ = الافتراضي، و0 = بدون حد. «المتبقي الآن»: اكتب كم يوماً بقي له فعلاً، ويُحسب تلقائياً ما أخذه قبل استخدام النظام.": "«Per year»: days of each type for this employee, empty = default, 0 = no limit. «Left now»: type how many days are really left; leave taken before the system is worked out for you.",
+    "في السنة": "Per year",
+    "المتبقي الآن": "Left now",
+    "أخذ قبل النظام": "Taken before the system",
+    "أيام إضافية": "Extra days",
+    "أخذ على النظام": "Taken in the system",
+    "منها": "Of which",
+    "يوم قبل استخدام النظام": "days before the system",
+    "شامل": "Including",
+    "يوم إضافية": "extra days"
 }
