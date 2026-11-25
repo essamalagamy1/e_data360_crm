@@ -4,15 +4,19 @@ namespace App\Http\Controllers\Edata;
 
 use App\Exports\EdataAttendanceExport;
 use App\Models\AttendanceEmployee;
+use App\Models\Leave;
 use App\Support\Edata\Access;
 use App\Support\Edata\Audit;
 use App\Support\Edata\AttendanceService;
 use App\Support\Edata\Fmt;
+use App\Support\Edata\Labels;
+use App\Support\Edata\Notifier;
 use Carbon\Carbon;
 use DomainException;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 
 class AttendanceController extends BaseController
@@ -167,6 +171,100 @@ class AttendanceController extends BaseController
         }
 
         return $this->done('تم تعديل السجل وتوثيق السبب.');
+    }
+
+    /**
+     * Changes a day without a clock-in (usually an absence) to attendance, leave,
+     * excused, day off or absent, or puts it back to what the rules say.
+     */
+    public function setDay(Request $request)
+    {
+        $me = $this->me();
+        Access::need($me, 'edit attendance');
+        $company = $this->companyId();
+        $service = AttendanceService::for($company);
+
+        $data = $request->validate([
+            'employee_id' => 'required|integer',
+            'date' => 'required|date_format:Y-m-d',
+            'state' => ['required', Rule::in(['present', 'leave', 'excused', 'day_off', 'absent', 'auto'])],
+            'clock_in' => 'nullable|required_if:state,present|date_format:H:i',
+            'clock_out' => 'nullable|date_format:H:i',
+            'leave_type_id' => ['nullable', 'required_if:state,leave', 'integer', Rule::exists('leave_types', 'id')->where('created_by', $company)],
+            'reason' => 'required|string|min:3|max:400',
+        ], [], $this->names() + ['state' => 'الحالة الجديدة', 'leave_type_id' => 'نوع الإجازة']);
+
+        $employee = Access::employees($me)->findOrFail($data['employee_id']);
+        $date = $data['date'];
+        $state = $data['state'];
+        if ($date > Carbon::now($service->rules()['zone'])->toDateString()) {
+            return $this->failed('لا يمكن تعديل يوم لم يأتِ بعد.');
+        }
+        $worked = AttendanceEmployee::where('employee_id', $employee->id)->whereDate('date', $date)
+            ->whereNotNull('clock_in')->where('clock_in', '!=', '00:00:00')->exists();
+        if ($worked) {
+            return $this->failed('هذا اليوم فيه تسجيل حضور. عدّل وقته أو احذف السجل أولاً.');
+        }
+
+        $old = $service->report(collect([$employee]), $date, $date)->first()['status'];
+
+        try {
+            DB::transaction(function () use ($data, $date, $state, $employee, $company, $service, $me) {
+                $key = ['employee_id' => $employee->id, 'date' => $date];
+                $current = DB::table('edata_day_statuses')->where($key)->lockForUpdate()->first();
+
+                // The leave this screen made for the day goes first, so its days return to the balance.
+                if ($current && $current->leave_id) {
+                    Leave::where('created_by', $company)->where('employee_id', $employee->id)->whereKey($current->leave_id)->delete();
+                }
+                DB::table('edata_day_statuses')->where($key)->delete();
+
+                if ($state !== 'auto') {
+                    $covering = Leave::where('employee_id', $employee->id)->whereIn('status', ['Approved', 'Pending'])
+                        ->whereDate('start_date', '<=', $date)->whereDate('end_date', '>=', $date)->first();
+                    if ($covering) {
+                        throw new DomainException($covering->status === 'Pending'
+                            ? 'يوجد طلب إجازة ينتظر الرد يشمل هذا اليوم. ردّ عليه من صفحة الطلبات أولاً.'
+                            : 'هذا اليوم ضمن إجازة تمت الموافقة عليها. احذفها من صفحة الطلبات أولاً.');
+                    }
+                }
+
+                if ($state === 'present') {
+                    Audit::$nextNote = $data['reason'];
+                    $service->saveManual(null, $employee, $date, $data['clock_in'], $data['clock_out'] ?? null);
+                } elseif ($state !== 'auto') {
+                    $leaveId = $state !== 'leave' ? null : Leave::create([
+                        'employee_id' => $employee->id,
+                        'leave_type_id' => $data['leave_type_id'],
+                        'applied_on' => Carbon::now($service->rules()['zone'])->toDateString(),
+                        'start_date' => $date,
+                        'end_date' => $date,
+                        'total_leave_days' => '1',
+                        'leave_reason' => $data['reason'],
+                        'remark' => '',
+                        'status' => 'Approved',
+                        'created_by' => $company,
+                    ])->id;
+                    DB::table('edata_day_statuses')->insert($key + [
+                        'company_id' => $company, 'status' => $state, 'leave_id' => $leaveId, 'reason' => $data['reason'],
+                        'set_by' => $me->id, 'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                }
+            });
+        } catch (DomainException $e) {
+            Audit::$nextNote = null;
+
+            return $this->failed($e->getMessage());
+        }
+
+        $new = $service->report(collect([$employee]), $date, $date)->first()['status'];
+        $label = Labels::attendance($new)[0];
+        Audit::record('updated', 'attendance', null, $employee->name . ' - ' . $date, ['الحالة' => Labels::attendance($old)[0]], ['الحالة' => $label], $data['reason']);
+        if ($employee->user_id && $new !== $old) {
+            Notifier::send((int) $employee->user_id, 'attendance_changed', 'تم تعديل يوم ' . $date . ' إلى «' . $label . '»', $data['reason'], route('edata.me.attendance', [], false));
+        }
+
+        return $this->done('تم تعديل اليوم إلى «' . $label . '» وتوثيق السبب.');
     }
 
     public function destroy(Request $request, int $row)

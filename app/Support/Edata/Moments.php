@@ -325,7 +325,7 @@ class Moments
 
         $streak = 0;
         foreach ($days as $day) {
-            if (in_array($day['status'], ['weekend', 'holiday', 'leave', 'not_yet'], true)) {
+            if (in_array($day['status'], ['weekend', 'holiday', 'leave', 'not_yet', 'excused', 'day_off'], true)) {
                 continue;
             }
             if (in_array('late', $day['flags'], true) || !in_array($day['status'], ['present', 'overtime', 'working'], true)) {

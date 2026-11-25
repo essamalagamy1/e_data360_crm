@@ -63,6 +63,8 @@ class Labels
         'missing_out' => ['لم يسجل الانصراف', 'bad'],
         'not_yet' => ['لم يسجل بعد', 'neutral'],
         'permission' => ['بإذن', 'info'],
+        'excused' => ['غياب بعذر', 'info'],
+        'day_off' => ['راحة', 'neutral'],
     ];
 
     public const CLIENT_STATUSES = [

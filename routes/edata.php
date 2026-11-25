@@ -88,6 +88,7 @@ Route::middleware(['auth', 'verified', 'XSS', 'revalidate'])->group(function () 
     Route::get('attendance/export', [AttendanceController::class, 'export'])->name('edata.attendance.export');
     Route::post('attendance/settings', [AttendanceController::class, 'saveSettings'])->name('edata.attendance.settings');
     Route::post('attendance', [AttendanceController::class, 'store'])->name('edata.attendance.store');
+    Route::post('attendance/day', [AttendanceController::class, 'setDay'])->name('edata.attendance.day');
     Route::put('attendance/{row}', [AttendanceController::class, 'update'])->whereNumber('row')->name('edata.attendance.update');
     Route::delete('attendance/{row}', [AttendanceController::class, 'destroy'])->whereNumber('row')->name('edata.attendance.destroy');
 

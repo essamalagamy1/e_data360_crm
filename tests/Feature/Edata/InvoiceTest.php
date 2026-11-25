@@ -29,6 +29,8 @@ class InvoiceTest extends EdataTestCase
 
     public function test_creating_an_invoice_with_lines_calculates_totals(): void
     {
+        // The due date below must still be ahead.
+        $this->travelTo('2026-11-05 10:00:00');
         $customer = $this->customer();
         $product = $this->product(500);
 

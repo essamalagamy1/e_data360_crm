@@ -80,7 +80,7 @@
                 @else
                     <div class="ed-table-wrap">
                         <table class="ed-table">
-                            <thead><tr><th>{{ __('التاريخ') }}</th><th>{{ __('الدخول') }}</th><th>{{ __('الخروج') }}</th><th>{{ __('الساعات') }}</th><th>{{ __('الحالة') }}</th></tr></thead>
+                            <thead><tr><th>{{ __('التاريخ') }}</th><th>{{ __('الدخول') }}</th><th>{{ __('الخروج') }}</th><th>{{ __('الساعات') }}</th><th>{{ __('الحالة') }}</th>@can('edit attendance')<th class="is-end"><span class="visually-hidden">{{ __('إجراءات') }}</span></th>@endcan</tr></thead>
                             <tbody>
                                 @foreach ($shown as $day)
                                     <tr>
@@ -89,6 +89,13 @@
                                         <td class="ed-num">{{ $day['out'] ?? '—' }}</td>
                                         <td class="ed-num">{{ $day['seconds'] ? Labels::hours($day['seconds']) : '—' }}</td>
                                         <td><x-ed.badge :pair="Labels::attendance($day['status'])" /></td>
+                                        @can('edit attendance')
+                                            <td class="is-end is-tight">
+                                                @if ($day['sessions']->isEmpty())
+                                                    <button type="button" class="ed-btn ed-btn--ghost ed-btn--sm" data-day-edit data-employee="{{ $day['employee_id'] }}" data-date="{{ $day['date'] }}" data-state="{{ $day['status'] }}" data-title="{{ $day['employee_name'] }} - {{ Labels::date($day['date']) }}" aria-label="{{ __('تعديل الحالة') }}" title="{{ __('تعديل الحالة') }}"><i class="ti ti-pencil"></i></button>
+                                                @endif
+                                            </td>
+                                        @endcan
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -151,4 +158,7 @@
         </div>
     </div>
 </div>
+@can('edit attendance')
+    @include('edata.attendance._day_edit')
+@endcan
 @endsection

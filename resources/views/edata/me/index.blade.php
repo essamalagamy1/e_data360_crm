@@ -13,6 +13,7 @@
     $dayClass = [
         'present' => 'is-present', 'overtime' => 'is-overtime', 'working' => 'is-working', 'late' => 'is-late',
         'missing_out' => 'is-missing', 'absent' => 'is-absent', 'leave' => 'is-leave', 'holiday' => 'is-holiday', 'weekend' => 'is-rest',
+        'excused' => 'is-leave', 'day_off' => 'is-rest',
     ];
     $weekDays = app()->getLocale() === 'en' ? ['S', 'M', 'T', 'W', 'T', 'F', 'S'] : ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
 @endphp

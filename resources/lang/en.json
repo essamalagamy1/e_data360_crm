@@ -3844,5 +3844,16 @@
     "منها": "Of which",
     "يوم قبل استخدام النظام": "days before the system",
     "شامل": "Including",
-    "يوم إضافية": "extra days"
+    "يوم إضافية": "extra days",
+    "غياب بعذر": "Excused absence",
+    "راحة": "Day off",
+    "تعديل حالة اليوم": "Change the day",
+    "الحالة الجديدة": "New state",
+    "حضور": "Present",
+    "إجازة (تُخصم من رصيده)": "Leave (taken from the balance)",
+    "غياب بعذر (لا يُحسب غياباً)": "Excused (not counted as absence)",
+    "غياب": "Absence",
+    "إلغاء التعديل والرجوع للحالة الأصلية": "Undo and go back to the original state",
+    "تعديل الحالة": "Change state",
+    "يُحفظ في سجل الأنشطة، ويصل للموظف إشعار بالتعديل.": "Kept in the activity log, and the employee is notified."
 }

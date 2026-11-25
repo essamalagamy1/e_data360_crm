@@ -70,7 +70,7 @@
             </select>
             <select class="ed-select" name="status" aria-label="{{ __('الحالة') }}">
                 <option value="">{{ __('كل الحالات') }}</option>
-                @foreach (['present', 'late', 'absent', 'leave', 'overtime', 'missing_out', 'working'] as $s)
+                @foreach (['present', 'late', 'absent', 'leave', 'excused', 'day_off', 'overtime', 'missing_out', 'working'] as $s)
                     <option value="{{ $s }}" @selected(request('status') === $s)>{{ __(Labels::attendance($s)[0]) }}</option>
                 @endforeach
             </select>
@@ -122,6 +122,10 @@
                                 </td>
                                 @if ($canEdit || $canDelete)
                                     <td class="is-end is-tight">
+                                        @if ($canEdit && $day['sessions']->isEmpty())
+                                            <button type="button" class="ed-btn ed-btn--sm" data-day-edit data-employee="{{ $day['employee_id'] }}" data-date="{{ $day['date'] }}" data-state="{{ $day['status'] }}"
+                                                data-title="{{ $day['employee_name'] }} - {{ Labels::date($day['date']) }}"><i class="ti ti-pencil"></i>{{ __('تعديل الحالة') }}</button>
+                                        @endif
                                         @foreach ($day['sessions'] as $session)
                                             <span class="ed-actions">
                                                 @if ($canEdit)
@@ -184,6 +188,7 @@
 </div>
 
 @if ($canEdit)
+    @include('edata.attendance._day_edit')
     <dialog class="ed-dialog" id="dlgEdit">
         <form method="POST" id="dlgEditForm">
             @csrf @method('PUT')

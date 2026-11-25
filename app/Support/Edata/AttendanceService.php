@@ -388,6 +388,12 @@ class AttendanceService
                 ->mapWithKeys(fn ($p) => [$p->employee_id . '|' . Carbon::parse($p->date)->toDateString() => true])
             : collect();
 
+        // Days a manager decided by hand (excused, day off, absent).
+        $decided = \Illuminate\Support\Facades\Schema::hasTable('edata_day_statuses')
+            ? \Illuminate\Support\Facades\DB::table('edata_day_statuses')->whereIn('employee_id', $ids)->whereBetween('date', [$from, $to])->get()
+                ->mapWithKeys(fn ($d) => [$d->employee_id . '|' . Carbon::parse($d->date)->toDateString() => $d->status])
+            : collect();
+
         $holidays = Holiday::where('created_by', $this->companyId)
             ->where('date', '<=', $to)
             ->where(function ($q) use ($from) {
@@ -408,7 +414,8 @@ class AttendanceService
                     $leaves[$employee->id] ?? collect(),
                     $holidays,
                     $rules,
-                    isset($permissions[$employee->id . '|' . $date])
+                    isset($permissions[$employee->id . '|' . $date]),
+                    $decided[$employee->id . '|' . $date] ?? null
                 );
                 $cursor->addDay();
             }
@@ -417,7 +424,7 @@ class AttendanceService
         return collect($days)->sortByDesc('date')->values();
     }
 
-    private function buildDay(Employee $employee, string $date, Collection $sessions, Collection $leaves, Collection $holidays, array $rules, bool $permitted = false): array
+    private function buildDay(Employee $employee, string $date, Collection $sessions, Collection $leaves, Collection $holidays, array $rules, bool $permitted = false, ?string $decided = null): array
     {
         $day = Carbon::parse($date);
         $workDays = self::ownDays($employee) ?? $rules['work_days'];
@@ -500,6 +507,12 @@ class AttendanceService
                 'overtime_seconds' => $overtime,
                 'flags' => $flags,
             ]);
+        }
+
+        // No clock-in, but a manager already said what this day was. A leave is
+        // read from the leaves table below, so the balance and the day always agree.
+        if (in_array($decided, ['excused', 'day_off', 'absent'], true)) {
+            return array_merge($base, ['status' => $decided]);
         }
 
         // No clock-in on this day: decide why.
